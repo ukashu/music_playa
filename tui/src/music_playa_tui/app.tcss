@@ -1,0 +1,7 @@
+#controls {
+    height: auto;
+}
+
+#now-playing {
+    padding: 1;
+}

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-playa-gui"
+version = "0.1.0"
+description = "PySide6 interface for music_playa"
+readme = "README.md"
+requires-python = ">=3.15"
+dependencies = [
+    "PySide6",
+    "python-dotenv",
+]
+
+[project.scripts]
+music-playa-gui = "music_playa_gui.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

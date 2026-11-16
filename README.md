@@ -1,4 +1,15 @@
+# music_playa
+
+A local music player. The logic lives in the Python package `music_playa`. The TUI and the GUI import that package directly, each from its own `.venv`. There is no server process, REST API, or WebSocket.
+
+`backend` is a library. The TUI ([Textual](https://textual.textualize.io)) and the GUI (PySide6) call the same Python interfaces. Details of the contract, the audio engine, and each interface live in the project READMEs:
+
+- [backend/README.md](backend/README.md)
+- [tui/README.md](tui/README.md)
+- [gui/README.md](gui/README.md)
+
 ## Functionality list
+
 - play music
 - pause playback
 - skip song
@@ -12,39 +23,66 @@
 - in order, shuffle, repeat playback modes
 - audio spectrum visualizer
 
-## Architecture
-Main logic is exposed via REST API. User Interface applications call endpoints.
+## Layout
 
-## Proposed folder structure
+```
+music_playa/
+├── README.md
+├── .gitignore
+├── scripts/
+│   ├── setup.sh
+│   ├── run_tui.sh
+│   └── run_gui.sh
+├── backend/          # core library
+├── tui/              # Textual app
+└── gui/              # PySide6 app
+```
 
-``` python
-music-playa/
-│
-├── backend/
-│   ├── core/
-│   │   ├── audio_engine.py #get MPV working
-│   │   ├── player.py #playback controls
-│   │   ├── library.py 
-│   │   └── queue.py
-│   │
-│   ├── services/
-│   │   ├── scanner.py #scan for music in current directory
-│   │   ├── metadata.py #get song metadata
-│   │   ├── cover_art.py #get song cover art
-│   │   └── visualizer.py #extract visualizer data from song
-│   │
-│   └── api/
-│       ├── routes/
-│       │   ├── player.py
-│       │   └── library.py
-│       └── websocket.py
-│
-├── tui/
-│   └── main.py
-│
-├── gui/
-│   └── ...
-│
-├── script to run both backend and TUI/GUI
-└── requirements.txt
+## Setup
+
+Python 3.15 is required (`requires-python = ">=3.15"` in every `pyproject.toml`). From the repository root:
+
+```bash
+scripts/setup.sh
+```
+
+That creates three virtual environments and installs each project in editable mode. The same steps by hand:
+
+```bash
+python3.15 -m venv backend/.venv
+backend/.venv/bin/pip install -e "./backend[dev]"
+
+python3.15 -m venv tui/.venv
+tui/.venv/bin/pip install -e ./backend -e ./tui
+
+python3.15 -m venv gui/.venv
+gui/.venv/bin/pip install -e ./backend -e ./gui
+```
+
+## Run
+
+The start scripts do not change the process working directory. The app reads `.env` from the directory it was launched from (`Path.cwd()`), not from the repository directory.
+
+```bash
+scripts/run_tui.sh
+scripts/run_gui.sh
+```
+
+## Scanner working directory
+
+The library path comes from the `MUSIC_DIR` variable in a `.env` file located in the directory the app is launched from. The scan covers that directory and its subdirectories. A missing file or a missing variable aborts startup. There is no CLI argument and no silent fallback to `cwd`.
+
+Example, when the script is started from `~/Muzyka`:
+
+```bash
+# ~/Muzyka/.env
+MUSIC_DIR=/home/lexxar/Muzyka
+```
+
+`.env` is listed in `.gitignore`. The same variable applies to both the TUI and the GUI, because both call `Library` with the same directory.
+
+Core tests, using the backend `.venv`:
+
+```bash
+backend/.venv/bin/pytest
 ```
