@@ -10,6 +10,7 @@
 - change playback volume
 - jump to specific position in song playback (or maybe rewind buttons)
 - in order, shuffle, repeat playback modes
+- audio spectrum visualizer
 
 ## Architecture
 Main logic is exposed via REST API. User Interface applications call endpoints.
