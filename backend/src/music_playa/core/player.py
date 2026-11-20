@@ -1,22 +1,25 @@
-import time
-
+from music_playa.core.audio_engine import AudioEngine as ConcreteAudioEngine
 from music_playa.core.queue import PlayQueue
 from music_playa.events import EventBus
-from music_playa.interfaces import PlaybackListener
+from music_playa.interfaces import AudioEngine, PlaybackListener
 from music_playa.models import PlaybackMode, PlaybackState, Track
 
 
 class MemoryPlayer:
-    """In-memory player. Position advances on a monotonic clock while playing."""
+    """Player implementation that delegates audio operations to an engine."""
 
-    def __init__(self, tracks: list[Track], events: EventBus) -> None:
+    def __init__(
+        self,
+        tracks: list[Track],
+        events: EventBus,
+        engine: AudioEngine | None = None,
+    ) -> None:
         self._queue = PlayQueue(tracks)
         self._events = events
+        self._engine = engine if engine is not None else ConcreteAudioEngine()
         self._state = PlaybackState.STOPPED
-        self._position = 0.0
-        self._played_at: float | None = None
         self._volume = 1.0
-        self._duration = 180.0
+        self._loaded_track: Track | None = None
 
     @property
     def current(self) -> Track | None:
@@ -24,10 +27,11 @@ class MemoryPlayer:
 
     @property
     def position(self) -> float:
-        if self._state is PlaybackState.PLAYING and self._played_at is not None:
-            elapsed = time.monotonic() - self._played_at
-            return min(self._duration, self._position + elapsed)
-        return self._position
+        return self._engine.position
+
+    @property
+    def duration(self) -> float:
+        return self._engine.duration
 
     @property
     def mode(self) -> PlaybackMode:
@@ -41,15 +45,17 @@ class MemoryPlayer:
     def play(self) -> None:
         if self.current is None:
             return
+        if self._loaded_track is not self.current:
+            self._engine.load(self.current.path)
+            self._loaded_track = self.current
         if self._state is not PlaybackState.PLAYING:
             self._state = PlaybackState.PLAYING
-            self._played_at = time.monotonic()
+        self._engine.play()
         self._emit()
 
     def pause(self) -> None:
         if self._state is PlaybackState.PLAYING:
-            self._position = self.position
-            self._played_at = None
+            self._engine.pause()
             self._state = PlaybackState.PAUSED
         self._emit()
 
@@ -64,22 +70,26 @@ class MemoryPlayer:
         self._emit()
 
     def seek(self, position: float) -> None:
-        self._position = min(max(position, 0.0), self._duration)
-        if self._state is PlaybackState.PLAYING:
-            self._played_at = time.monotonic()
+        self._engine.seek(position)
         self._emit()
 
     def set_volume(self, volume: float) -> None:
         self._volume = min(max(volume, 0.0), 1.0)
+        self._engine.set_volume(self._volume)
         self._emit()
 
     def add_listener(self, listener: PlaybackListener) -> None:
         self._events.add(listener)
 
     def _restart_position(self) -> None:
-        self._position = 0.0
-        self._played_at = time.monotonic() if self._state is PlaybackState.PLAYING else None
+        self._engine.stop()
+        self._loaded_track = None
+        if self.current is not None:
+            self._engine.load(self.current.path)
+            self._loaded_track = self.current
+            if self._state is PlaybackState.PLAYING:
+                self._engine.play()
 
     def _emit(self) -> None:
         self._events.notify_track(self.current)
-        self._events.notify_progress(self.position, self._duration)
+        self._events.notify_progress(self.position, self.duration)

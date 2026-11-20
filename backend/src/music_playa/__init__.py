@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from music_playa.core.audio_engine import AudioEngine as ConcreteAudioEngine
 from music_playa.core.library import FileLibrary
 from music_playa.core.player import MemoryPlayer
 from music_playa.events import EventBus
@@ -11,5 +12,6 @@ __all__ = ["Library", "Player", "Visualizer", "create_app"]
 
 def create_app(music_dir: str | Path) -> tuple[Player, Library, Visualizer]:
     library = FileLibrary(Path(music_dir))
-    player = MemoryPlayer(library.tracks, EventBus())
+    engine = ConcreteAudioEngine()
+    player = MemoryPlayer(library.tracks, EventBus(), engine)
     return player, library, SilentVisualizer()

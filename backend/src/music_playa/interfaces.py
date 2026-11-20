@@ -1,6 +1,30 @@
+from pathlib import Path
 from typing import Protocol
 
 from music_playa.models import PlaybackMode, Track
+
+
+class AudioEngine(Protocol):
+    @property
+    def position(self) -> float: ...
+
+    @property
+    def duration(self) -> float: ...
+
+    @property
+    def is_playing(self) -> bool: ...
+
+    def load(self, path: Path) -> float: ...
+
+    def play(self) -> None: ...
+
+    def pause(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+    def seek(self, position: float) -> None: ...
+
+    def set_volume(self, volume: float) -> None: ...
 
 
 class PlaybackListener(Protocol):
