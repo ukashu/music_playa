@@ -23,6 +23,13 @@ class PlayQueue:
             return None
         return self._tracks[self._index]
 
+    def select(self, track: Track) -> Track | None:
+        for index, candidate in enumerate(self._tracks):
+            if candidate is track or candidate == track:
+                self._index = index
+                return candidate
+        return self.current
+
     def next(self) -> Track | None:
         if not self._tracks:
             return None

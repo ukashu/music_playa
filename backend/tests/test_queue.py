@@ -23,3 +23,11 @@ def test_mode_is_remembered() -> None:
     queue.mode = PlaybackMode.REPEAT
 
     assert queue.mode is PlaybackMode.REPEAT
+
+
+def test_select_moves_to_requested_track() -> None:
+    tracks = _tracks()
+    queue = PlayQueue(tracks)
+
+    assert queue.select(tracks[1]) == tracks[1]
+    assert queue.current == tracks[1]

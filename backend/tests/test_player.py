@@ -53,6 +53,7 @@ class _FakeEngine:
     def stop(self) -> None:
         self._position = 0.0
         self._playing = False
+        self.loaded_path = None
 
     def seek(self, position: float) -> None:
         self._position = min(max(position, 0.0), self._duration)
@@ -129,3 +130,23 @@ def test_track_change_reloads_engine_and_preserves_playing_state() -> None:
     player.previous()
     assert engine.loaded_path == tracks[0].path
     assert not engine.is_playing
+
+
+def test_stop_select_and_volume() -> None:
+    tracks = [
+        Track(Path("a.mp3"), "a"),
+        Track(Path("b.mp3"), "b"),
+    ]
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+
+    player.play()
+    player.set_volume(0.25)
+    assert player.volume == 0.25
+
+    player.select(tracks[1])
+    assert player.current == tracks[1]
+    assert engine.loaded_path == tracks[1].path
+
+    player.stop()
+    assert engine.loaded_path is None

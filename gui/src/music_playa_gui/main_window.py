@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QLabel, QMainWindow, QVBoxLayout, QWidget
 
 from music_playa.interfaces import Library, Player, Visualizer
-from music_playa.models import Track
+from music_playa.models import PlaybackMode, Track
 from music_playa_gui.bridge import PlaybackBridge
 from music_playa_gui.widgets.controls import Transport
 from music_playa_gui.widgets.library_view import LibraryView
@@ -35,9 +35,43 @@ class MainWindow(QMainWindow):
 
         self._transport.play.clicked.connect(lambda: self.player.play())
         self._transport.pause.clicked.connect(lambda: self.player.pause())
+        self._transport.stop.clicked.connect(lambda: self.player.stop())
         self._transport.next.clicked.connect(lambda: self.player.next())
         self._transport.previous.clicked.connect(lambda: self.player.previous())
+        self._transport.mode.clicked.connect(self.cycle_mode)
+        self._transport.seek_end.clicked.connect(self.seek_near_end)
+        self._transport.volume_down.clicked.connect(lambda: self.change_volume(-0.1))
+        self._transport.volume_up.clicked.connect(lambda: self.change_volume(0.1))
+        self._library_view.itemClicked.connect(self.select_track)
+        self.update_volume_label()
         self.show_track(self.player.current)
+
+    def cycle_mode(self) -> None:
+        modes = [
+            PlaybackMode.IN_ORDER,
+            PlaybackMode.SHUFFLE,
+            PlaybackMode.REPEAT,
+        ]
+        index = modes.index(self.player.mode)
+        self.player.mode = modes[(index + 1) % len(modes)]
+        self._transport.mode.setText(f"Mode: {self.player.mode.value.replace('_', ' ').title()}")
+
+    def seek_near_end(self) -> None:
+        duration = self.player.duration
+        self.player.seek(max(duration - 3.0, 0.0))
+
+    def change_volume(self, change: float) -> None:
+        self.player.set_volume(self.player.volume + change)
+        self.update_volume_label()
+
+    def update_volume_label(self) -> None:
+        self._transport.volume_label.setText(f"Volume: {round(self.player.volume * 100)}%")
+
+    def select_track(self, item) -> None:
+        index = self._library_view.row(item)
+        tracks = self.library.tracks
+        if 0 <= index < len(tracks):
+            self.player.select(tracks[index])
 
     def show_track(self, track: Track | None) -> None:
         title = track.title if track is not None else "No track"

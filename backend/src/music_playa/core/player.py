@@ -34,6 +34,10 @@ class MemoryPlayer:
         return self._engine.duration
 
     @property
+    def volume(self) -> float:
+        return self._volume
+
+    @property
     def mode(self) -> PlaybackMode:
         return self._queue.mode
 
@@ -57,6 +61,19 @@ class MemoryPlayer:
         if self._state is PlaybackState.PLAYING:
             self._engine.pause()
             self._state = PlaybackState.PAUSED
+        self._emit()
+
+    def stop(self) -> None:
+        self._engine.stop()
+        self._state = PlaybackState.STOPPED
+        self._loaded_track = None
+        self._emit()
+
+    def select(self, track: Track) -> None:
+        selected = self._queue.select(track)
+        if selected is None:
+            return
+        self._restart_position()
         self._emit()
 
     def next(self) -> None:
