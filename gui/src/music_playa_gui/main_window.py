@@ -5,6 +5,7 @@ from music_playa.models import PlaybackMode, Track
 from music_playa_gui.bridge import PlaybackBridge
 from music_playa_gui.widgets.controls import Transport
 from music_playa_gui.widgets.library_view import LibraryView
+from music_playa_gui.widgets.spectrum import SpectrumSettings, SpectrumWidget
 
 
 class MainWindow(QMainWindow):
@@ -18,13 +19,15 @@ class MainWindow(QMainWindow):
         self._library_view = LibraryView()
         self._library_view.set_tracks([track.title for track in library.tracks])
         self._transport = Transport()
-        self._spectrum = QLabel(f"spectrum placeholder ({len(visualizer.bands())} bands)")
+        self._spectrum = SpectrumWidget(visualizer)
+        self._spectrum_settings = SpectrumSettings(self._spectrum)
 
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.addWidget(self._status)
         layout.addWidget(self._library_view)
         layout.addWidget(self._transport)
+        layout.addWidget(self._spectrum_settings)
         layout.addWidget(self._spectrum)
         self.setCentralWidget(central)
 

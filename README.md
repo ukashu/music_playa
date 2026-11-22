@@ -40,7 +40,7 @@ music_playa/
 
 ## Setup
 
-Python 3.15 is required (`requires-python = ">=3.15"` in every `pyproject.toml`). From the repository root:
+Python 3.15 is required (`requires-python = ">=3.15"` in every `pyproject.toml`). The audio spectrum visualizer also needs the `ffmpeg` binary in `PATH` (without it playback works and the spectrum stays empty). From the repository root:
 
 ```bash
 scripts/setup.sh

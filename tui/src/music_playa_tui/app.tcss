@@ -5,3 +5,22 @@
 #now-playing {
     padding: 1;
 }
+
+#spectrum-settings {
+    height: 1;
+    margin: 1 1 0 1;
+}
+
+#spectrum-settings Label {
+    padding: 0 1 0 0;
+}
+
+#spectrum-settings Input {
+    width: 8;
+    margin-right: 2;
+}
+
+#spectrum {
+    width: 1fr;
+    margin: 1 1;
+}

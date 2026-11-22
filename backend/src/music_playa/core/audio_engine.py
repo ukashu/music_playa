@@ -1,3 +1,5 @@
+import locale
+import math
 from pathlib import Path
 from collections.abc import Callable
 
@@ -8,6 +10,8 @@ class AudioEngine:
     """Audio playback engine backed by mpv."""
 
     def __init__(self) -> None:
+        # libmpv requires the C numeric locale; a localized LC_NUMERIC breaks seeks.
+        locale.setlocale(locale.LC_NUMERIC, "C")
         self.player = mpv.MPV()
         self._on_track_ended: Callable[[], None] | None = None
         self._loaded_path: Path | None = None
@@ -28,14 +32,15 @@ class AudioEngine:
     @property
     def position(self) -> float:
         position = self.player.time_pos
-        if position is not None:
+        if position is not None and math.isfinite(position):
             self._position = float(position)
         return self._position
 
     @property
     def duration(self) -> float:
         duration = self.player.duration
-        if duration is not None:
+        # mpv may report NaN/inf for files with unknown length; treat as unknown.
+        if duration is not None and math.isfinite(duration):
             self._duration = float(duration)
         return self._duration
 
@@ -76,6 +81,8 @@ class AudioEngine:
         self._playing = False
 
     def seek(self, position: float) -> None:
+        if not math.isfinite(position):
+            return
         duration = self.duration
         self._position = max(position, 0.0)
         if duration > 0.0:

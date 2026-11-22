@@ -1,3 +1,4 @@
+import locale
 import os
 import sys
 from pathlib import Path
@@ -20,6 +21,9 @@ def main() -> None:
         raise SystemExit(1)
     player, library, visualizer = create_app(music_dir)
     app = QApplication(sys.argv)
+    # QApplication switches LC_NUMERIC to the user's locale (e.g. pl_PL), which
+    # libmpv does not support and which makes seek commands fail. Restore "C".
+    locale.setlocale(locale.LC_NUMERIC, "C")
     window = MainWindow(player, library, visualizer)
     window.resize(640, 480)
     window.show()

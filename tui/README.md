@@ -24,7 +24,8 @@ tui/.venv/bin/python -m music_playa_tui
 
 - `widgets/library_list.py` lists `Library.tracks`
 - `widgets/now_playing.py` shows `Player.current` and the progress callback
-- `widgets/spectrum.py` is a placeholder. It reports how many bands `Visualizer.bands()` returns and does not draw an FFT
+- `widgets/spectrum.py` draws `Visualizer.bands()` as coloured block rows (green to orange), refreshed every 50 ms with `set_interval`. Each column is 2 characters wide. `SpectrumSettings` has two integer inputs: Width (maximum columns, 4 to 128, default 32) and Height (rows, 2 to 24, default 8). Out-of-range values are clamped, and Enter in a field shows the value actually applied. The number of columns drawn is also limited by the terminal width (`width // 2`), so a narrow terminal shows fewer bars than the Width input.
+- Tests: `tui/.venv/bin/python -m pytest tui/tests` (needs `pytest` in the TUI venv)
 - Play, pause, previous, and next call `Player`
 
 Styles live in `app.tcss`.
