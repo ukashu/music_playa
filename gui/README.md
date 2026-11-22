@@ -24,7 +24,7 @@ gui/.venv/bin/python -m music_playa_gui
 
 - `widgets/library_view.py` lists `Library.tracks`
 - `widgets/controls.py` calls play, pause, previous, and next on `Player`
-- the spectrum label is a placeholder. It reports how many bands `Visualizer.bands()` returns and does not draw an FFT
+- `widgets/spectrum.py` draws `Visualizer.bands()` as columns of segments (default 32 x 8). `SpectrumSettings` holds two spin boxes: Width (columns, 4 to 128) and Height (segments, 2 to 32). Out-of-range values are clamped. The segment colour is interpolated from green through yellow to orange by height. It is refreshed by a `QTimer` at about 30 FPS
 
 ## Stack
 

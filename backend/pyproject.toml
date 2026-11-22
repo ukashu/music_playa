@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.15"
 dependencies = [
     "python-mpv",
+    "numpy",
 ]
 
 [project.optional-dependencies]

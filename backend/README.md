@@ -2,7 +2,7 @@
 
 `music_playa_core` is the shared library. The TUI and the GUI install it in editable mode and import only `music_playa`. They do not call SoLoud, `AudioEngine`, the scanner, or each other's classes.
 
-The current code is a mock. `AudioEngine` does not load `libsoloud`. Playback state lives in memory, the scanner lists files by extension, and the visualizer returns zeros. Swapping in SoLoud later does not change the imports in the TUI or the GUI.
+The current code is a mock. `AudioEngine` does not load `libsoloud`. Playback state lives in memory, the scanner lists files by extension, and the visualizer is computed by `FftVisualizer` (see below). Swapping in SoLoud later does not change the imports in the TUI or the GUI.
 
 ## Interfaces
 
@@ -12,7 +12,7 @@ The public contract is `typing.Protocol` in `interfaces.py`.
 |---|---|
 | `Player` | play, pause, next, previous, seek, volume, current track, position, queue mode |
 | `Library` | list of tracks from the `MUSIC_DIR` directory, metadata, cover art |
-| `Visualizer` | `bands()` (`calcFFT`), `wave()` (`getWave`) |
+| `Visualizer` | `bands()` (256 spectrum levels, 0..1), `wave()` (256 samples, -1..1) |
 | `PlaybackListener` | callbacks for playback progress and track change |
 
 `__init__.py` exposes `create_app(music_dir)`, which assembles the implementations and returns objects typed as those interfaces.
@@ -38,7 +38,8 @@ flowchart LR
     GuiApp["gui - PySide6"] -->|same Protocol| Interfaces
     Events -->|PlaybackListener| TuiApp
     Events -->|PlaybackListener| GuiApp
-    AudioEngine --> SoLoud["SoLoud (calcFFT, getWave)"]
+    AudioEngine -->|"position, is_playing"| VisualizerImpl
+    VisualizerImpl --> Ffmpeg["ffmpeg + numpy FFT"]
 ```
 
 The diagram is the target shape. In the mock, `MemoryPlayer` does not call `AudioEngine`.
@@ -58,12 +59,12 @@ The diagram is the target shape. In the mock, `MemoryPlayer` does not call `Audi
 | change playback volume | `Player.set_volume()` | `core/player.py` |
 | jump to specific position | `Player.seek()` | `core/player.py` |
 | in order, shuffle, repeat | `Player.mode` | `core/queue.py` |
-| audio spectrum visualizer | `Visualizer.bands()`, `Visualizer.wave()` | `services/visualizer.py` (`calcFFT`, `getWave`) |
+| audio spectrum visualizer | `Visualizer.bands()`, `Visualizer.wave()` | `services/visualizer.py` (`FftVisualizer`) |
 | playback progress and track change | `PlaybackListener` | `events.py` |
 
 Shared models (`Track`, `PlaybackState`, `PlaybackMode`) live in `models.py`. The "Interface" column is the only API the TUI and GUI use. The "Implementation" column stays inside this package.
 
-The mock scanner accepts `.wav`, `.ogg`, `.mp3`, and `.flac`. It does not read tags. `Library.cover()` returns `None`. `Visualizer.bands()` and `Visualizer.wave()` return 256 zeros. While playback state is playing, `position` advances on a monotonic clock, not on an audio device.
+The mock scanner accepts `.wav`, `.ogg`, `.mp3`, and `.flac`. It does not read tags. `Library.cover()` returns `None`. While playback state is playing, `position` advances on a monotonic clock, not on an audio device.
 
 ## Stack
 
@@ -72,7 +73,16 @@ The mock scanner accepts `.wav`, `.ogg`, `.mp3`, and `.flac`. It does not read t
 - mutagen: tags and cover art. Not a dependency of the mock.
 - pytest: `[dev]` extra
 
-The FFT is computed by SoLoud (`calcFFT` / `getWave`). `numpy` is not a core dependency.
+- numpy: FFT for the visualizer (core dependency)
+- ffmpeg: system binary used to decode tracks for the visualizer. If it is missing, the visualizer stays silent and playback is not affected.
+
+### Visualizer
+
+mpv does not expose audio samples, so `FftVisualizer` (`services/visualizer.py`) decodes the current track in a background thread (`ffmpeg -ac 1 -ar 22050 -f f32le`) and takes a 2048-sample window at `AudioEngine.position`. That keeps the spectrum in sync after a seek. It is registered as a `PlaybackListener` in `create_app()` to learn about track changes.
+
+- `bands()` returns 256 log-spaced levels in 0..1 (Hann window, rfft, -70..0 dB). Levels rise instantly and fall at a fixed rate; they fall to 0 when playback is not running.
+- `wave()` returns 256 samples of the same window in -1..1, or zeros when not playing.
+- Until decoding finishes, or when it fails, both return zeros. `SilentVisualizer` remains as an always-zero implementation.
 
 ### SoLoud
 

@@ -7,7 +7,7 @@ from music_playa.models import PlaybackMode, Track
 from music_playa_tui.adapter import TextualAdapter
 from music_playa_tui.widgets.library_list import LibraryList
 from music_playa_tui.widgets.now_playing import NowPlaying
-from music_playa_tui.widgets.spectrum import SpectrumPlaceholder
+from music_playa_tui.widgets.spectrum import Spectrum, SpectrumSettings
 
 
 class MusicApp(App[None]):
@@ -35,7 +35,9 @@ class MusicApp(App[None]):
             yield Button("Seek 3s from End", id="seek-end")
             yield Button("Volume -", id="volume-down")
             yield Button("Volume +", id="volume-up")
-        yield SpectrumPlaceholder(band_count=len(self.visualizer.bands()))
+        spectrum = Spectrum(self.visualizer, id="spectrum")
+        yield SpectrumSettings(spectrum, id="spectrum-settings")
+        yield spectrum
         yield Footer()
 
     def on_mount(self) -> None:
