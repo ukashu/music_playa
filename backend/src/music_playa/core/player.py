@@ -17,6 +17,8 @@ class MemoryPlayer:
         self._queue = PlayQueue(tracks)
         self._events = events
         self._engine = engine if engine is not None else ConcreteAudioEngine()
+        if hasattr(self._engine, "set_track_ended_callback"):
+            self._engine.set_track_ended_callback(self._on_track_ended)
         self._state = PlaybackState.STOPPED
         self._volume = 1.0
         self._loaded_track: Track | None = None
@@ -110,3 +112,12 @@ class MemoryPlayer:
     def _emit(self) -> None:
         self._events.notify_track(self.current)
         self._events.notify_progress(self.position, self.duration)
+
+    def _on_track_ended(self) -> None:
+        previous = self.current
+        self.next()
+        if self.current is previous:
+            self.stop()
+        else:
+            self._state = PlaybackState.PLAYING
+            self._emit()

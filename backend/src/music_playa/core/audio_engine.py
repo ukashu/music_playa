@@ -1,4 +1,5 @@
 from pathlib import Path
+from collections.abc import Callable
 
 import mpv
 
@@ -8,12 +9,21 @@ class AudioEngine:
 
     def __init__(self) -> None:
         self.player = mpv.MPV()
-
+        self._on_track_ended: Callable[[], None] | None = None
         self._loaded_path: Path | None = None
         self._position = 0.0
         self._duration = 0.0
         self._playing = False
         self._volume = 1.0
+
+        @self.player.event_callback("end-file")
+        def on_end_file(event: mpv.Event) -> None:
+            if self._playing and self._on_track_ended is not None:
+                self._playing = False
+                self._on_track_ended()
+
+    def set_track_ended_callback(self, callback: Callable[[], None]) -> None:
+        self._on_track_ended = callback
 
     @property
     def position(self) -> float:
@@ -80,3 +90,4 @@ class AudioEngine:
     def set_volume(self, volume: float) -> None:
         self._volume = min(max(volume, 0.0), 1.0)
         self.player.volume = self._volume * 100.0
+
