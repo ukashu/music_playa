@@ -19,3 +19,7 @@ class PlaybackMode(Enum):
 class Track:
     path: Path
     title: str
+    artist: str = "Unknown Artist"
+    album: str = "Unknown Album"
+    duration: float = 0.0
+    track_number: str = ""

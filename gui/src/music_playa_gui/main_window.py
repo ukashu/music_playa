@@ -16,7 +16,7 @@ class MainWindow(QMainWindow):
 
         self._status = QLabel("No track")
         self._library_view = LibraryView()
-        self._library_view.set_tracks([track.title for track in library.tracks])
+        self._library_view.set_tracks(library.tracks)
         self._transport = Transport()
         self._spectrum = QLabel(f"spectrum placeholder ({len(visualizer.bands())} bands)")
 
@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         self._transport.seek_end.clicked.connect(self.seek_near_end)
         self._transport.volume_down.clicked.connect(lambda: self.change_volume(-0.1))
         self._transport.volume_up.clicked.connect(lambda: self.change_volume(0.1))
-        self._library_view.itemClicked.connect(self.select_track)
+        self._library_view.cellClicked.connect(self.select_track)
         self.update_volume_label()
         self.show_track(self.player.current)
 
@@ -67,11 +67,10 @@ class MainWindow(QMainWindow):
     def update_volume_label(self) -> None:
         self._transport.volume_label.setText(f"Volume: {round(self.player.volume * 100)}%")
 
-    def select_track(self, item) -> None:
-        index = self._library_view.row(item)
+    def select_track(self, row: int, column: int) -> None:
         tracks = self.library.tracks
-        if 0 <= index < len(tracks):
-            self.player.select(tracks[index])
+        if 0 <= row < len(tracks):
+            self.player.select(tracks[row])
 
     def show_track(self, track: Track | None) -> None:
         title = track.title if track is not None else "No track"
