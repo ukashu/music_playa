@@ -42,7 +42,7 @@ class MusicApp(App[None]):
 
     def on_mount(self) -> None:
         library = self.query_one(LibraryList)
-        library.set_tracks([track.title for track in self.library.tracks])
+        library.set_tracks(self.library.tracks)
         self.player.add_listener(TextualAdapter(self))
         self._volume = self.player.volume
         self.show_track(self.player.current)

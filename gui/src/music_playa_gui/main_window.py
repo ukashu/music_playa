@@ -1,3 +1,5 @@
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QMainWindow, QVBoxLayout, QWidget
 
 from music_playa.interfaces import Library, Player, Visualizer
@@ -16,8 +18,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("music_playa")
 
         self._status = QLabel("No track")
+        self._cover = QLabel()
+        self._cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._cover.setFixedSize(220, 220)
+        self._cover.hide()
         self._library_view = LibraryView()
-        self._library_view.set_tracks([track.title for track in library.tracks])
+        self._library_view.set_tracks(library.tracks)
         self._transport = Transport()
         self._spectrum = SpectrumWidget(visualizer)
         self._spectrum_settings = SpectrumSettings(self._spectrum)
@@ -25,6 +31,7 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.addWidget(self._status)
+        layout.addWidget(self._cover, alignment=Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(self._library_view)
         layout.addWidget(self._transport)
         layout.addWidget(self._spectrum_settings)
@@ -45,7 +52,7 @@ class MainWindow(QMainWindow):
         self._transport.seek_end.clicked.connect(self.seek_near_end)
         self._transport.volume_down.clicked.connect(lambda: self.change_volume(-0.1))
         self._transport.volume_up.clicked.connect(lambda: self.change_volume(0.1))
-        self._library_view.itemClicked.connect(self.select_track)
+        self._library_view.cellClicked.connect(self.select_track)
         self.update_volume_label()
         self.show_track(self.player.current)
 
@@ -70,15 +77,38 @@ class MainWindow(QMainWindow):
     def update_volume_label(self) -> None:
         self._transport.volume_label.setText(f"Volume: {round(self.player.volume * 100)}%")
 
-    def select_track(self, item) -> None:
-        index = self._library_view.row(item)
+    def select_track(self, row: int, column: int) -> None:
         tracks = self.library.tracks
-        if 0 <= index < len(tracks):
-            self.player.select(tracks[index])
+        if 0 <= row < len(tracks):
+            self.player.select(tracks[row])
 
     def show_track(self, track: Track | None) -> None:
         title = track.title if track is not None else "No track"
         self._status.setText(f"{title}  {self.player.position:.1f}s")
+        self.show_cover(track)
+
+    def show_cover(self, track: Track | None) -> None:
+        self._cover.clear()
+        self._cover.hide()
+        if track is None:
+            return
+
+        cover = self.library.cover(track)
+        if cover is None:
+            return
+
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(cover):
+            return
+
+        self._cover.setPixmap(
+            pixmap.scaled(
+                self._cover.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        self._cover.show()
 
     def show_progress(self, position: float, duration: float) -> None:
         track = self.player.current
