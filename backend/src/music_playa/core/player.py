@@ -2,7 +2,7 @@ from music_playa.core.audio_engine import AudioEngine as ConcreteAudioEngine
 from music_playa.core.queue import PlayQueue
 from music_playa.events import EventBus
 from music_playa.interfaces import AudioEngine, PlaybackListener
-from music_playa.models import PlaybackMode, PlaybackState, Track
+from music_playa.models import PlaybackMode, PlaybackState, RepeatMode, Track
 
 
 class MemoryPlayer:
@@ -28,6 +28,10 @@ class MemoryPlayer:
         return self._queue.current
 
     @property
+    def state(self) -> PlaybackState:
+        return self._state
+
+    @property
     def position(self) -> float:
         return self._engine.position
 
@@ -46,6 +50,15 @@ class MemoryPlayer:
     @mode.setter
     def mode(self, mode: PlaybackMode) -> None:
         self._queue.mode = mode
+        self._emit()
+
+    @property
+    def repeat(self) -> RepeatMode:
+        return self._queue.repeat
+
+    @repeat.setter
+    def repeat(self, repeat: RepeatMode) -> None:
+        self._queue.repeat = repeat
         self._emit()
 
     def play(self) -> None:
@@ -114,10 +127,15 @@ class MemoryPlayer:
         self._events.notify_progress(self.position, self.duration)
 
     def _on_track_ended(self) -> None:
-        previous = self.current
-        self.next()
-        if self.current is previous:
-            self.stop()
-        else:
-            self._state = PlaybackState.PLAYING
+        # The engine only reports the end of a track that was playing.
+        self._state = PlaybackState.PLAYING
+        if self._queue.repeat is RepeatMode.ONE:
+            # Restarting the same track keeps repeating it until the user changes it.
+            self._restart_position()
             self._emit()
+        elif self._queue.has_next():
+            self.next()
+        else:
+            # End of the list without repeat: cue the first track and stop.
+            self._queue.rewind()
+            self.stop()

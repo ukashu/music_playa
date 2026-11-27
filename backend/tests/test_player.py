@@ -3,7 +3,7 @@ from pathlib import Path
 from music_playa import create_app
 from music_playa.core.player import MemoryPlayer
 from music_playa.events import EventBus
-from music_playa.models import Track
+from music_playa.models import PlaybackState, RepeatMode, Track
 
 
 class _Recorder:
@@ -24,6 +24,7 @@ class _FakeEngine:
         self._duration = 0.0
         self._playing = False
         self._volume = 1.0
+        self._on_ended = None
         self.loaded_path: Path | None = None
 
     @property
@@ -60,6 +61,15 @@ class _FakeEngine:
 
     def set_volume(self, volume: float) -> None:
         self._volume = min(max(volume, 0.0), 1.0)
+
+    def set_track_ended_callback(self, callback) -> None:
+        self._on_ended = callback
+
+    def finish_track(self) -> None:
+        """Simulate the engine reporting that the loaded track has ended."""
+        if self._playing and self._on_ended is not None:
+            self._playing = False
+            self._on_ended()
 
 
 def test_next_and_previous_move_the_queue(tmp_path: Path) -> None:
@@ -150,3 +160,129 @@ def test_stop_select_and_volume() -> None:
 
     player.stop()
     assert engine.loaded_path is None
+
+
+def _two_tracks() -> list[Track]:
+    return [Track(Path("a.mp3"), "a"), Track(Path("b.mp3"), "b")]
+
+
+def test_repeat_off_plays_next_then_stops_at_the_end() -> None:
+    tracks = _two_tracks()
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    player.play()
+
+    engine.finish_track()
+    assert player.current == tracks[1]
+    assert engine.loaded_path == tracks[1].path
+    assert engine.is_playing
+
+    engine.finish_track()
+    # The list ends without repeat: playback stops and the first track is cued.
+    assert player.current == tracks[0]
+    assert engine.loaded_path is None
+    assert not engine.is_playing
+
+
+def test_state_follows_play_pause_stop_and_end_of_list() -> None:
+    tracks = _two_tracks()
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    assert player.state is PlaybackState.STOPPED
+
+    player.play()
+    assert player.state is PlaybackState.PLAYING
+    player.pause()
+    assert player.state is PlaybackState.PAUSED
+    player.play()
+    assert player.state is PlaybackState.PLAYING
+
+    engine.finish_track()
+    assert player.state is PlaybackState.PLAYING
+    engine.finish_track()
+    assert player.state is PlaybackState.STOPPED
+
+
+def test_manual_next_on_last_track_plays_first_with_repeat_off() -> None:
+    tracks = _two_tracks()
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    player.play()
+    player.select(tracks[1])
+
+    player.next()
+
+    assert player.current == tracks[0]
+    assert engine.loaded_path == tracks[0].path
+    assert engine.is_playing
+
+
+def test_repeat_all_wraps_to_the_first_track() -> None:
+    tracks = _two_tracks()
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    player.repeat = RepeatMode.ALL
+    player.play()
+
+    engine.finish_track()
+    engine.finish_track()
+
+    assert player.current == tracks[0]
+    assert engine.loaded_path == tracks[0].path
+    assert engine.is_playing
+
+
+def test_repeat_all_loops_a_single_track() -> None:
+    tracks = [Track(Path("a.mp3"), "a")]
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    player.repeat = RepeatMode.ALL
+    player.play()
+
+    for _ in range(3):
+        engine.finish_track()
+        assert engine.loaded_path == tracks[0].path
+        assert engine.is_playing
+
+
+def test_repeat_one_restarts_the_same_track_until_changed() -> None:
+    tracks = _two_tracks()
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    player.repeat = RepeatMode.ONE
+    player.play()
+
+    for _ in range(3):
+        engine.finish_track()
+        assert player.current == tracks[0]
+        assert engine.loaded_path == tracks[0].path
+        assert engine.is_playing
+
+
+def test_repeat_one_manual_next_moves_to_the_following_track() -> None:
+    tracks = _two_tracks()
+    engine = _FakeEngine()
+    player = MemoryPlayer(tracks, EventBus(), engine)
+    player.repeat = RepeatMode.ONE
+    player.play()
+
+    player.next()
+    assert player.current == tracks[1]
+    assert engine.is_playing
+
+    engine.finish_track()
+    assert player.current == tracks[1]
+    assert engine.loaded_path == tracks[1].path
+    assert engine.is_playing
+
+
+def test_setting_repeat_notifies_listeners() -> None:
+    recorder = _Recorder()
+    player = MemoryPlayer(_two_tracks(), EventBus(), _FakeEngine())
+    player.add_listener(recorder)
+    before = len(recorder.tracks)
+
+    player.repeat = RepeatMode.ALL
+
+    assert player.repeat is RepeatMode.ALL
+    assert len(recorder.tracks) == before + 1

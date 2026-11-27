@@ -12,7 +12,12 @@ class PlaybackState(Enum):
 class PlaybackMode(Enum):
     IN_ORDER = "in_order"
     SHUFFLE = "shuffle"
-    REPEAT = "repeat"
+
+
+class RepeatMode(Enum):
+    OFF = "off"
+    ALL = "all"
+    ONE = "one"
 
 
 @dataclass(frozen=True)

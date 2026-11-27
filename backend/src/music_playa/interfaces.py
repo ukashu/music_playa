@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Protocol
 
-from music_playa.models import PlaybackMode, Track
+from music_playa.models import PlaybackMode, PlaybackState, RepeatMode, Track
 
 
 class AudioEngine(Protocol):
@@ -41,6 +41,9 @@ class Player(Protocol):
     def current(self) -> Track | None: ...
 
     @property
+    def state(self) -> PlaybackState: ...
+
+    @property
     def position(self) -> float: ...
 
     @property
@@ -54,6 +57,12 @@ class Player(Protocol):
 
     @mode.setter
     def mode(self, mode: PlaybackMode) -> None: ...
+
+    @property
+    def repeat(self) -> RepeatMode: ...
+
+    @repeat.setter
+    def repeat(self, repeat: RepeatMode) -> None: ...
 
     def play(self) -> None: ...
 

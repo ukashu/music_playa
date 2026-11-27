@@ -10,7 +10,7 @@ The public contract is `typing.Protocol` in `interfaces.py`.
 
 | Interface | Responsibility |
 |---|---|
-| `Player` | play, pause, next, previous, seek, volume, current track, position, queue mode |
+| `Player` | play, pause, next, previous, seek, volume, current track, playback state (`state`), position, queue mode (`mode`), repeat (`repeat`) |
 | `Library` | list of tracks from the `MUSIC_DIR` directory, metadata, cover art |
 | `Visualizer` | `bands()` (256 spectrum levels, 0..1), `wave()` (256 samples, -1..1) |
 | `PlaybackListener` | callbacks for playback progress and track change |
@@ -58,11 +58,12 @@ The diagram is the target shape. In the mock, `MemoryPlayer` does not call `Audi
 | get current song progress | `Player.position` | `core/audio_engine.py` (`getStreamTime`) |
 | change playback volume | `Player.set_volume()` | `core/player.py` |
 | jump to specific position | `Player.seek()` | `core/player.py` |
-| in order, shuffle, repeat | `Player.mode` | `core/queue.py` |
+| in order, shuffle | `Player.mode` | `core/queue.py` |
+| repeat off, all, one | `Player.repeat` | `core/queue.py`, `core/player.py` |
 | audio spectrum visualizer | `Visualizer.bands()`, `Visualizer.wave()` | `services/visualizer.py` (`FftVisualizer`) |
 | playback progress and track change | `PlaybackListener` | `events.py` |
 
-Shared models (`Track`, `PlaybackState`, `PlaybackMode`) live in `models.py`. The "Interface" column is the only API the TUI and GUI use. The "Implementation" column stays inside this package.
+Shared models (`Track`, `PlaybackState`, `PlaybackMode`, `RepeatMode`) live in `models.py`. `RepeatMode.OFF` stops after the last track when a track ends and cues the first track again, `ALL` loops the whole list (a single track loops too), and `ONE` restarts the current track when it ends, until the user changes track or stops. A manual `next()` on the last track always returns to the first track (except in shuffle mode, which picks a random track). The "Interface" column is the only API the TUI and GUI use. The "Implementation" column stays inside this package.
 
 The mock scanner accepts `.wav`, `.ogg`, `.mp3`, and `.flac`. It does not read tags. `Library.cover()` returns `None`. While playback state is playing, `position` advances on a monotonic clock, not on an audio device.
 
