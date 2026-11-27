@@ -20,7 +20,7 @@ A local music player. The logic lives in the Python package `music_playa`. The T
 - get current song progress
 - change playback volume
 - jump to specific position in song playback (or maybe rewind buttons)
-- in order, shuffle, repeat playback modes
+- playback modes in order and shuffle, plus repeat off / repeat all / repeat one 
 - audio spectrum visualizer
 
 ## Layout
