@@ -21,7 +21,9 @@ def read(path: Path) -> dict[str, str | float]:
     }
 
 def _first(tags: object, key: str) -> str:
-    values = getattr(tags, key, None)
+    # mutagen's easy tags are a mapping (tags["artist"]), not attributes.
+    getter = getattr(tags, "get", None)
+    values = getter(key) if getter is not None else getattr(tags, key, None)
     if values:
         return str(values[0])
     return ""
