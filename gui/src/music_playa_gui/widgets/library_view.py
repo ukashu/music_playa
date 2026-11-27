@@ -36,6 +36,8 @@ class LibraryView(QTableWidget):
         header.setSectionResizeMode(DURATION_COLUMN, QHeaderView.ResizeMode.Fixed)
         self.setColumnWidth(INDEX_COLUMN, 40)
         self.setColumnWidth(DURATION_COLUMN, 56)
+        # The sidebar paints a flamingo behind this list, so the viewport stays clear.
+        self.viewport().setAutoFillBackground(False)
 
         translator.language_changed.connect(self.retranslate)
         self.retranslate()

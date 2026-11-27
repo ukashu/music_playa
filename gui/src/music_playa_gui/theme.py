@@ -108,7 +108,7 @@ QSlider::handle:horizontal:hover {{
 }}
 
 QTableWidget {{
-    background-color: {SURFACE};
+    background-color: transparent;
     border: none;
     outline: none;
     gridline-color: transparent;
@@ -119,15 +119,12 @@ QTableWidget::item {{
     padding-left: 8px;
     border: none;
 }}
-QTableWidget::item:hover {{
-    background-color: {SURFACE_HOVER};
-}}
 QTableWidget::item:selected {{
     background-color: rgba(255, 46, 151, 60);
     color: {TEXT};
 }}
 QHeaderView::section {{
-    background-color: {SURFACE};
+    background-color: rgba(27, 17, 64, 110);
     color: {TEXT_MUTED};
     border: none;
     border-bottom: 1px solid {BORDER};

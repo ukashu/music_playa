@@ -20,4 +20,4 @@ music-playa-gui = "music_playa_gui.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-music_playa_gui = ["assets/*.png"]
+music_playa_gui = ["assets/*.png", "assets/*.jpg"]
