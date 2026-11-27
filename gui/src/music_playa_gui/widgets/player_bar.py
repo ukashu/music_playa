@@ -1,7 +1,17 @@
 import math
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QPixmap, QPolygonF
+from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QMouseEvent,
+    QMoveEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QPixmap,
+    QPolygonF,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -17,6 +27,7 @@ from music_playa.models import PlaybackMode, RepeatMode, Track
 from music_playa_gui.i18n import tr, translator
 from music_playa_gui.placeholder import vinyl_pixmap
 from music_playa_gui.theme import CYAN, TEXT, TEXT_MUTED
+from music_playa_gui.widgets.backdrop import grid_pixmap
 from music_playa_gui.widgets.icons import ICON_PX, Icon, make_icon
 from music_playa_gui.widgets.marquee_label import MarqueeLabel
 
@@ -184,6 +195,8 @@ class PlayerBar(QWidget):
         self._track: Track | None = None
         self._playback_mode = PlaybackMode.IN_ORDER
         self._repeat_mode = RepeatMode.OFF
+        self._grid: QPixmap | None = None
+        self._grid_key: tuple | None = None
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 8, 16, 8)
@@ -194,6 +207,39 @@ class PlayerBar(QWidget):
         translator.language_changed.connect(self.retranslate)
         self.retranslate()
         self.set_track(None, None)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._rebuild_grid()
+
+    def moveEvent(self, event: QMoveEvent) -> None:
+        # Resizing the window moves the bar, and with it the window centre.
+        super().moveEvent(event)
+        self._rebuild_grid()
+
+    def _rebuild_grid(self) -> None:
+        # The grid sits below the 1 px top border, which the stylesheet draws, and its
+        # lines point at the centre of the window (above the bar).
+        window = self.window()
+        origin = self.mapTo(window, QPoint(0, 1))
+        size = QSize(self.width(), max(self.height() - 1, 0))
+        vanishing_x = window.width() / 2 - origin.x()
+        horizon = origin.y() - window.height() / 2
+        key = (size, round(vanishing_x), round(horizon), self.devicePixelRatioF())
+        if key == self._grid_key:
+            return
+        self._grid_key = key
+        self._grid = grid_pixmap(size, self.devicePixelRatioF(), vanishing_x, horizon)
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        # The stylesheet paints the background first; the grid goes over it and the
+        # child widgets (transparent, apart from hover states) are drawn above.
+        super().paintEvent(event)
+        if self._grid is not None:
+            painter = QPainter(self)
+            painter.drawPixmap(0, 1, self._grid)
+            painter.end()
 
     @property
     def playing(self) -> bool:

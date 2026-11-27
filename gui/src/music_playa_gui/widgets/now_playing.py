@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 from music_playa.interfaces import Visualizer
 from music_playa_gui.i18n import tr, translator
 from music_playa_gui.placeholder import vinyl_pixmap
+from music_playa_gui.widgets.backdrop import scanlines_pixmap
 from music_playa_gui.widgets.settings_panel import SettingsPanel
 from music_playa_gui.widgets.spectrum import DEFAULT_COLUMNS, DEFAULT_SEGMENTS, SpectrumWidget
 
@@ -14,6 +15,7 @@ _GRADIENT_BOTTOM = QColor(36, 23, 87)
 GEAR_SIZE = 40
 GEAR_MARGIN = 16
 VINYL_FILL = 0.9  # share of the shorter side taken by the vinyl record
+PLACEHOLDER_SCANLINE_OPACITY = 0.6  # scanlines over the gradient and vinyl, which are not dimmed
 VINYL_OPACITY = 0.8  # keeps the record in the background, like the dimmed cover
 
 
@@ -35,6 +37,7 @@ class NowPlayingView(QWidget):
         self._cover: QPixmap | None = None
         self._scaled: QPixmap | None = None
         self._vinyl: QPixmap | None = None
+        self._scanlines: QPixmap | None = None
 
         self._spectrum = SpectrumWidget(visualizer, columns, segments)
 
@@ -76,6 +79,9 @@ class NowPlayingView(QWidget):
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._rescale()
+        # Cached like the artwork: the spectrum repaints this view ~30 times a second.
+        ratio = self.devicePixelRatioF()
+        self._scanlines = scanlines_pixmap(self.size(), ratio)
         self._gear.move(self.width() - GEAR_SIZE - GEAR_MARGIN, GEAR_MARGIN)
         self._settings_panel.place()
         self._gear.raise_()
@@ -121,11 +127,20 @@ class NowPlayingView(QWidget):
                     (self.height() - self._vinyl.height()) // 2,
                     self._vinyl,
                 )
+            # No dimming layer here, so the lines are toned down to match the cover.
+            self._paint_scanlines(painter, PLACEHOLDER_SCANLINE_OPACITY)
         else:
             offset = QPoint(
                 (self.width() - self._scaled.width()) // 2,
                 (self.height() - self._scaled.height()) // 2,
             )
             painter.drawPixmap(offset, self._scaled)
+            # The scanlines go on the cover itself, under the dimming layer.
+            self._paint_scanlines(painter, 1.0)
             painter.fillRect(self.rect(), _DIM)
         painter.end()
+
+    def _paint_scanlines(self, painter: QPainter, opacity: float) -> None:
+        painter.setOpacity(opacity)
+        if self._scanlines is not None:
+            painter.drawPixmap(0, 0, self._scanlines)
