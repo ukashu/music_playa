@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from music_playa.models import PlaybackMode, RepeatMode, Track
 from music_playa_gui.i18n import tr, translator
-from music_playa_gui.placeholder import vinyl_pixmap
+from music_playa_gui.logo import scaled_logo
 from music_playa_gui.theme import CYAN, TEXT, TEXT_MUTED
 from music_playa_gui.widgets.backdrop import grid_pixmap
 from music_playa_gui.widgets.icons import ICON_PX, Icon, make_icon
@@ -197,12 +197,15 @@ class PlayerBar(QWidget):
         self._repeat_mode = RepeatMode.OFF
         self._grid: QPixmap | None = None
         self._grid_key: tuple | None = None
+        self._thumb_logo_ratio: float | None = None  # set while the thumbnail shows the logo
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 8, 16, 8)
+        # Both side columns have the same fixed width, so the transport controls sit in the
+        # middle of the bar (and of the window) whatever the window size.
         layout.addWidget(self._build_info())
-        layout.addLayout(self._build_center(), 2)
-        layout.addLayout(self._build_options(), 1)
+        layout.addLayout(self._build_center(), 1)
+        layout.addWidget(self._build_options_area())
 
         translator.language_changed.connect(self.retranslate)
         self.retranslate()
@@ -217,7 +220,7 @@ class PlayerBar(QWidget):
         super().moveEvent(event)
         self._rebuild_grid()
 
-    def _rebuild_grid(self) -> None:
+    def _rebuild_grid(self, update: bool = True) -> None:
         # The grid sits below the 1 px top border, which the stylesheet draws, and its
         # lines point at the centre of the window (above the bar).
         window = self.window()
@@ -230,12 +233,18 @@ class PlayerBar(QWidget):
             return
         self._grid_key = key
         self._grid = grid_pixmap(size, self.devicePixelRatioF(), vanishing_x, horizon)
-        self.update()
+        if update:
+            self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         # The stylesheet paints the background first; the grid goes over it and the
         # child widgets (transparent, apart from hover states) are drawn above.
         super().paintEvent(event)
+        # The device pixel ratio can change after the first resize, so the pictures made for
+        # it are checked here too: the grid, and the logo when it is the thumbnail.
+        self._rebuild_grid(update=False)
+        if self._thumb_logo_ratio is not None and self._thumb_logo_ratio != self.devicePixelRatioF():
+            self._show_logo_thumb()
         if self._grid is not None:
             painter = QPainter(self)
             painter.drawPixmap(0, 1, self._grid)
@@ -347,6 +356,14 @@ class PlayerBar(QWidget):
         options.addWidget(self._volume)
         return options
 
+    def _build_options_area(self) -> QWidget:
+        # Same fixed width as the info column on the left, so the centre column is centred.
+        container = QWidget()
+        container.setObjectName("optionsArea")
+        container.setFixedWidth(INFO_WIDTH)
+        container.setLayout(self._build_options())
+        return container
+
     @staticmethod
     def _transport_button(icon: Icon, signal: Signal) -> QPushButton:
         button = QPushButton()
@@ -425,17 +442,27 @@ class PlayerBar(QWidget):
         self._track = track
         self._show_track_text()
         pixmap = QPixmap()
-        if cover is None or not pixmap.loadFromData(cover):
-            pixmap = vinyl_pixmap()  # no cover: show the vinyl record instead
         self._thumb.clear()
-        if not pixmap.isNull():
-            self._thumb.setPixmap(
-                pixmap.scaled(
-                    self._thumb.size(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
+        self._thumb_logo_ratio = None
+        if cover is not None and pixmap.loadFromData(cover):
+            if not pixmap.isNull():
+                self._thumb.setPixmap(
+                    pixmap.scaled(
+                        self._thumb.size(),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
                 )
-            )
+            return
+        self._show_logo_thumb()
+
+    def _show_logo_thumb(self) -> None:
+        """No cover: the logo as the thumbnail, made in device pixels so it is not stretched."""
+        side = max(self._thumb.width(), self._thumb.height())
+        ratio = self.devicePixelRatioF()
+        self._thumb_logo_ratio = ratio
+        if side > 0:
+            self._thumb.setPixmap(scaled_logo(round(side * ratio), ratio))
 
     def _show_track_text(self) -> None:
         track = self._track

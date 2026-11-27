@@ -1,36 +1,18 @@
-"""Decorative backdrops painted once per size and cached by the widgets.
+"""Decorative backdrop painted once per size and cached by the player bar.
 
-- scanlines_pixmap: the fine horizontal lines of a CRT / VHS picture, copied from
-  the reference texture (bright lines over dark gaps).
-  Used as a filter over the cover.
-- grid_pixmap: a perspective grid whose lines converge on a vanishing point, which
-  the player bar places at the centre of the window. Used behind the player bar.
+grid_pixmap: a perspective grid whose lines converge on a vanishing point, which
+the player bar places at the centre of the window.
 
-They return transparent pixmaps, so they can be drawn over anything. The
+It returns a transparent pixmap, so it can be drawn over anything. The
 constants below are the knobs for tuning the look.
 """
 
 import math
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
-from PySide6.QtGui import (
-    QBrush,
-    QColor,
-    QLinearGradient,
-    QPainter,
-    QPainterPath,
-    QPen,
-    QPixmap,
-)
+from PySide6.QtCore import QPointF, QSize, Qt
+from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPen, QPixmap
 
 from music_playa_gui.theme import PINK
-
-# Scanlines, based on the reference texture (8 px period, 3 px lines), made coarser
-SCANLINE_PERIOD = 12.0  # distance between two bright lines, in pixels
-SCANLINE_LINE = 5.0  # thickness of each bright line, in pixels
-SCANLINE_COLOR = (150, 166, 131)  # the muted yellow-green of the lit lines
-SCANLINE_LINE_ALPHA = 45  # 0..255, how strongly the lit lines tint the cover
-SCANLINE_GAP_ALPHA = 150  # 0..255, how dark the gaps between lines are
 
 # Grid
 GRID_RADIAL_SPACING = 64.0  # distance between radial lines on the bottom edge
@@ -45,29 +27,6 @@ def _blank(size: QSize, ratio: float) -> QPixmap:
     pixmap = QPixmap(round(size.width() * ratio), round(size.height() * ratio))
     pixmap.setDevicePixelRatio(ratio)
     pixmap.fill(Qt.GlobalColor.transparent)
-    return pixmap
-
-
-def scanlines_pixmap(size: QSize, ratio: float = 1.0) -> QPixmap:
-    pixmap = _blank(size, ratio)
-    if size.isEmpty():
-        return pixmap
-
-    width = float(size.width())
-    height = float(size.height())
-    painter = QPainter(pixmap)
-    painter.setPen(Qt.PenStyle.NoPen)
-
-    # Dark gaps first, then the lit lines on top of them.
-    gap = QColor(0, 0, 0, SCANLINE_GAP_ALPHA)
-    painter.fillRect(QRectF(0, 0, width, height), gap)
-    lit = QColor(*SCANLINE_COLOR)
-    lit.setAlpha(SCANLINE_LINE_ALPHA)
-    y = 0.0
-    while y < height:
-        painter.fillRect(QRectF(0, y, width, SCANLINE_LINE), lit)
-        y += SCANLINE_PERIOD
-    painter.end()
     return pixmap
 
 

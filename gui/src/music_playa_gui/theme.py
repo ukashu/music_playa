@@ -41,7 +41,7 @@ QWidget#trackTitle {{
 QWidget#trackArtist {{
     color: {TEXT_MUTED};
 }}
-QWidget#trackTitle, QWidget#trackArtist, QWidget#titleArea {{
+QWidget#trackTitle, QWidget#trackArtist, QWidget#titleArea, QWidget#optionsArea {{
     background: transparent;
 }}
 QLabel#cover {{
@@ -71,9 +71,6 @@ QPushButton:hover {{
 }}
 QPushButton#transportButton, QPushButton#modeButton {{
     padding: 0;
-}}
-QPushButton#transportButton:hover, QPushButton#modeButton:hover {{
-    background-color: {SURFACE_HOVER};
 }}
 QPushButton#playButton {{
     background-color: {PINK};
