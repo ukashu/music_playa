@@ -24,6 +24,7 @@ class _Engine:
         self.position = 0.0
         self.duration = 10.0
         self.is_playing = True
+        self.volume = 1.0
 
 
 def _sine(frequency: float, seconds: float = 5.0) -> np.ndarray:
@@ -62,6 +63,31 @@ def test_peak_band_matches_sine_frequency(monkeypatch) -> None:
     peak = int(np.argmax(bands))
     assert _band_frequency(viz, peak) == pytest.approx(440.0, rel=0.1)
     assert bands[peak] > 0.8
+
+
+def _peak_at_volume(monkeypatch, volume: float) -> float:
+    # A fresh visualizer per measurement: bands() keeps the highest level it has shown.
+    viz, engine, clock = _loaded(monkeypatch, _sine(440.0))
+    engine.volume = volume
+    engine.position = 1.0
+    clock.now = 0.1
+    return max(viz.bands())
+
+
+def test_half_volume_lowers_bars_by_about_6_db(monkeypatch) -> None:
+    full = _peak_at_volume(monkeypatch, 1.0)
+    half = _peak_at_volume(monkeypatch, 0.5)
+    # 20*log10(0.5) = -6.02 dB, and the display maps 70 dB onto the full 0..1 range.
+    assert full - half == pytest.approx(6.02 / 70.0, abs=0.01)
+    assert half < full
+
+
+def test_zero_volume_gives_zeros(monkeypatch) -> None:
+    assert _peak_at_volume(monkeypatch, 0.0) == 0.0
+
+
+def test_full_volume_keeps_the_full_scale_peak(monkeypatch) -> None:
+    assert _peak_at_volume(monkeypatch, 1.0) > 0.8
 
 
 def test_no_samples_gives_zeros(monkeypatch) -> None:

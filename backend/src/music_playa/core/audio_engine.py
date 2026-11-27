@@ -48,6 +48,10 @@ class AudioEngine:
     def is_playing(self) -> bool:
         return self._playing
 
+    @property
+    def volume(self) -> float:
+        return self._volume
+
     def load(self, path: Path) -> float:
         self.stop()
         self._loaded_path = path

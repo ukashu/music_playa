@@ -26,6 +26,11 @@ class SilentVisualizer:
         return [0.0] * _BANDS
 
 
+def _volume_gain(volume: float) -> float:
+    """Linear gain for the engine volume (0..1). Kept in one place so the curve can change."""
+    return min(max(volume, 0.0), 1.0)
+
+
 def decode_pcm(path: Path, sample_rate: int = _SAMPLE_RATE) -> np.ndarray | None:
     """Decode a file to mono float32 samples with ffmpeg. Returns None on failure."""
     ffmpeg = shutil.which("ffmpeg")
@@ -149,7 +154,11 @@ class FftVisualizer:
         frame = self._frame()
         if frame is None:
             return np.zeros(_BANDS)
-        magnitude = np.abs(np.fft.rfft(frame * self._hann)) / (_WINDOW / 4)
+        # Scale by the output volume so quieter playback gives lower bars.
+        gain = _volume_gain(self._engine.volume)
+        if gain <= 0.0:
+            return np.zeros(_BANDS)
+        magnitude = np.abs(np.fft.rfft(frame * self._hann)) / (_WINDOW / 4) * gain
         levels = np.interp(self._centers, self._bin_freqs, magnitude)
         for band, low, high in self._wide:
             levels[band] = max(levels[band], magnitude[low:high].max())

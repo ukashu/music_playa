@@ -78,7 +78,7 @@ The mock scanner accepts `.wav`, `.ogg`, `.mp3`, and `.flac`. It does not read t
 
 ### Visualizer
 
-mpv does not expose audio samples, so `FftVisualizer` (`services/visualizer.py`) decodes the current track in a background thread (`ffmpeg -ac 1 -ar 22050 -f f32le`) and takes a 2048-sample window at `AudioEngine.position`. That keeps the spectrum in sync after a seek. It is registered as a `PlaybackListener` in `create_app()` to learn about track changes.
+mpv does not expose audio samples, so `FftVisualizer` (`services/visualizer.py`) decodes the current track in a background thread (`ffmpeg -ac 1 -ar 22050 -f f32le`) and takes a 2048-sample window at `AudioEngine.position`. That keeps the spectrum in sync after a seek. The bands are scaled by the engine volume (`AudioEngine.volume`), so quieter playback gives lower bars and volume 0 shows none. It is registered as a `PlaybackListener` in `create_app()` to learn about track changes.
 
 - `bands()` returns 256 log-spaced levels in 0..1 (Hann window, rfft, -70..0 dB). Levels rise instantly and fall at a fixed rate; they fall to 0 when playback is not running.
 - `wave()` returns 256 samples of the same window in -1..1, or zeros when not playing.
