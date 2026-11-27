@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 
 from music_playa import create_app
 from music_playa_gui.main_window import MainWindow
+from music_playa_gui.theme import build_stylesheet
 
 
 def main() -> None:
@@ -21,11 +22,12 @@ def main() -> None:
         raise SystemExit(1)
     player, library, visualizer = create_app(music_dir)
     app = QApplication(sys.argv)
+    app.setStyleSheet(build_stylesheet())
     # QApplication switches LC_NUMERIC to the user's locale (e.g. pl_PL), which
     # libmpv does not support and which makes seek commands fail. Restore "C".
     locale.setlocale(locale.LC_NUMERIC, "C")
     window = MainWindow(player, library, visualizer)
-    window.resize(640, 480)
+    window.resize(1100, 700)
     window.show()
     raise SystemExit(app.exec())
 

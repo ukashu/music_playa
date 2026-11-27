@@ -1,8 +1,9 @@
-from PySide6.QtCore import QRectF, Qt, QTimer
+from PySide6.QtCore import QRectF, QTimer
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QWidget
+from PySide6.QtWidgets import QFormLayout, QLabel, QSpinBox, QWidget
 
 from music_playa.interfaces import Visualizer
+from music_playa_gui.i18n import tr, translator
 
 DEFAULT_COLUMNS = 32
 DEFAULT_SEGMENTS = 8
@@ -12,12 +13,15 @@ MIN_SEGMENTS = 2
 MAX_SEGMENTS = 32
 FRAME_MS = 33
 
-# Colour stops, bottom to top: green, yellow, orange.
+# Colour stops, bottom to top: cyan, violet, pink.
 _GRADIENT = [
-    (63, 207, 52),
-    (228, 228, 30),
-    (230, 90, 15),
+    (0, 229, 255),
+    (138, 79, 255),
+    (255, 46, 151),
 ]
+# The widget has no background of its own: it is drawn over the cover art, so
+# lit segments are translucent and unlit ones are not drawn at all.
+_LIT_ALPHA = 230
 
 
 def _gradient_color(position: float) -> QColor:
@@ -94,7 +98,6 @@ class SpectrumWidget(QWidget):
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
-        painter.fillRect(self.rect(), Qt.GlobalColor.black)
         columns = len(self._levels)
         segments = self._segments
         column_width = self.width() / columns
@@ -102,12 +105,9 @@ class SpectrumWidget(QWidget):
         gap = min(4.0, column_width * 0.25, segment_height * 0.25)
         for column, level in enumerate(self._levels):
             lit = round(min(max(level, 0.0), 1.0) * segments)
-            for segment in range(segments):
+            for segment in range(lit):
                 color = QColor(self._colors[segment])
-                if segment >= lit:
-                    color = QColor(
-                        color.red() // 9, color.green() // 9, color.blue() // 9
-                    )
+                color.setAlpha(_LIT_ALPHA)
                 top = self.height() - (segment + 1) * segment_height
                 rect = QRectF(
                     column * column_width + gap / 2,
@@ -124,6 +124,7 @@ class SpectrumSettings(QWidget):
 
     def __init__(self, spectrum: SpectrumWidget) -> None:
         super().__init__()
+        self.setObjectName("spectrumSettings")
         self.columns = QSpinBox()
         self.columns.setRange(MIN_COLUMNS, MAX_COLUMNS)
         self.columns.setValue(spectrum.columns)
@@ -134,10 +135,19 @@ class SpectrumSettings(QWidget):
         self.segments.setValue(spectrum.segments)
         self.segments.valueChanged.connect(spectrum.set_segments)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel("Width (columns)"))
-        layout.addWidget(self.columns)
-        layout.addWidget(QLabel("Height (segments)"))
-        layout.addWidget(self.segments)
-        layout.addStretch()
+        self._columns_label = QLabel()
+        self._segments_label = QLabel()
+
+        form = QFormLayout(self)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setVerticalSpacing(6)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        form.addRow(self._columns_label, self.columns)
+        form.addRow(self._segments_label, self.segments)
+
+        translator.language_changed.connect(self.retranslate)
+        self.retranslate()
+
+    def retranslate(self) -> None:
+        self._columns_label.setText(tr("settings.columns"))
+        self._segments_label.setText(tr("settings.segments"))
