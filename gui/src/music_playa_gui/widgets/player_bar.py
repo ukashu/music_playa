@@ -26,14 +26,20 @@ from PySide6.QtWidgets import (
 from music_playa.models import PlaybackMode, RepeatMode, Track
 from music_playa_gui.i18n import tr, translator
 from music_playa_gui.logo import scaled_logo
-from music_playa_gui.theme import CYAN, TEXT, TEXT_MUTED
+from music_playa_gui.theme import CYAN, SURFACE, TEXT, TEXT_MUTED
 from music_playa_gui.utils import clamp, format_time
 from music_playa_gui.widgets.backdrop import grid_pixmap
 from music_playa_gui.widgets.icons import ICON_PX, Icon, make_icon, stroke_pen
 from music_playa_gui.widgets.marquee_label import MarqueeLabel
 
 PROGRESS_STEPS = 1000
-THUMB_SIZE = 56
+PLAYER_HEIGHT = 96
+# The stylesheet draws a 1 px line on top of the bar; everything else is below it.
+PLAYER_BORDER = 1
+# The cover is a square that fills the bar from the left edge to the bottom edge.
+THUMB_SIZE = PLAYER_HEIGHT - PLAYER_BORDER
+# Space kept between the edge of the window and the centre and options columns.
+EDGE_MARGIN = 16
 INFO_WIDTH = 280
 # Previous, next, shuffle and repeat share one button size and icon size.
 TRANSPORT_SIZE = 36
@@ -54,6 +60,26 @@ _REPEAT_LABEL_KEYS = {
     RepeatMode.ALL: "repeat.all",
     RepeatMode.ONE: "repeat.one",
 }
+
+
+def _square_fit(image: QImage, side: int) -> QImage:
+    """The whole image inside a side x side square, centred.
+
+    A cover that is not square leaves strips at the top and bottom (or at the sides), and
+    they are filled with the bar's background colour, so the cover is never cropped.
+    """
+    fitted = image.scaled(
+        side,
+        side,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    square = QImage(side, side, QImage.Format.Format_ARGB32_Premultiplied)
+    square.fill(QColor(SURFACE))
+    painter = QPainter(square)
+    painter.drawImage((side - fitted.width()) // 2, (side - fitted.height()) // 2, fitted)
+    painter.end()
+    return square
 
 
 class ClickSlider(QSlider):
@@ -172,6 +198,7 @@ class PlayerBar(QWidget):
     next_clicked = Signal()
     mode_clicked = Signal()
     repeat_clicked = Signal()
+    stop_clicked = Signal()
     seek_requested = Signal(float)
     volume_changed = Signal(float)
 
@@ -179,7 +206,7 @@ class PlayerBar(QWidget):
         super().__init__()
         self.setObjectName("playerBar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setFixedHeight(96)
+        self.setFixedHeight(PLAYER_HEIGHT)
         self._duration = 0.0
         self._target_position = 0.0
         self._shown_position = 0.0
@@ -195,9 +222,10 @@ class PlayerBar(QWidget):
         self._thumb_ratio = 0.0
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 8, 16, 8)
-        # Both side columns have the same fixed width, so the transport controls sit in the
-        # middle of the bar (and of the window) whatever the window size.
+        # No margin on the left or top, so the cover sits in the corner. Both side columns
+        # have the same fixed width, so the transport controls sit in the middle of the bar
+        # (and of the window) whatever the window size.
+        layout.setContentsMargins(0, PLAYER_BORDER, 0, 0)
         layout.addWidget(self._build_info())
         layout.addLayout(self._build_center(), 1)
         layout.addWidget(self._build_options_area())
@@ -315,11 +343,15 @@ class PlayerBar(QWidget):
         timeline.addWidget(self._total)
 
         center = QVBoxLayout()
+        center.setContentsMargins(EDGE_MARGIN, 0, EDGE_MARGIN, 0)
         center.addLayout(buttons)
         center.addLayout(timeline)
         return center
 
     def _build_options(self) -> QHBoxLayout:
+        # Stop sits in the options column, so the play button stays in the middle.
+        self._stop = self._icon_button("transportButton", self.stop_clicked)
+        self._stop.setIcon(make_icon(Icon.STOP, TEXT_MUTED))
         self._speaker = SpeakerIcon()
         self._speaker.clicked.connect(self.toggle_mute)
         self._volume = ClickSlider()
@@ -330,8 +362,10 @@ class PlayerBar(QWidget):
         self._last_volume = 100
 
         options = QHBoxLayout()
+        options.setContentsMargins(0, 0, EDGE_MARGIN, 0)
         options.setSpacing(8)
         options.addStretch()
+        options.addWidget(self._stop)
         options.addWidget(self._speaker)
         options.addWidget(self._volume)
         return options
@@ -380,6 +414,7 @@ class PlayerBar(QWidget):
         self._show_track_text()
         self.set_mode(self._playback_mode)
         self.set_repeat(self._repeat_mode)
+        self._stop.setToolTip(tr("player.stop"))
         self._update_speaker()
 
     def set_mode(self, mode: PlaybackMode) -> None:
@@ -440,14 +475,7 @@ class PlayerBar(QWidget):
         if self._cover is None:
             pixmap = scaled_logo(side, ratio)
         else:
-            pixmap = QPixmap.fromImage(
-                self._cover.scaled(
-                    side,
-                    side,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            )
+            pixmap = QPixmap.fromImage(_square_fit(self._cover, side))
             pixmap.setDevicePixelRatio(ratio)
         self._thumb.setPixmap(pixmap)
 

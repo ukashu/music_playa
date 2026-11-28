@@ -19,6 +19,7 @@ class Icon(Enum):
     SHUFFLE = "shuffle"
     REPEAT = "repeat"
     REPEAT_ONE = "repeat_one"
+    STOP = "stop"
 
 
 def make_icon(kind: Icon, color: str) -> QIcon:
@@ -74,6 +75,10 @@ def _next(painter: QPainter, color: QColor) -> None:
     _filled_triangle(painter, [(6, 6), (6, 18), (15, 12)], color)
 
 
+def _stop(painter: QPainter, color: QColor) -> None:
+    _filled_triangle(painter, [(6, 6), (18, 6), (18, 18), (6, 18)], color)
+
+
 def _shuffle(painter: QPainter, color: QColor) -> None:
     painter.setPen(stroke_pen(color))
     painter.drawPolyline(QPolygonF([QPointF(4, 8), QPointF(9, 8), QPointF(15, 16), QPointF(19, 16)]))
@@ -107,6 +112,7 @@ def _repeat_one(painter: QPainter, color: QColor) -> None:
 _DRAWERS = {
     Icon.PREVIOUS: _previous,
     Icon.NEXT: _next,
+    Icon.STOP: _stop,
     Icon.SHUFFLE: _shuffle,
     Icon.REPEAT: _repeat,
     Icon.REPEAT_ONE: _repeat_one,

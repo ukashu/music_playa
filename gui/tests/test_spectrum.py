@@ -10,6 +10,8 @@ from music_playa_gui.widgets.spectrum import (
     MAX_SEGMENTS,
     MIN_COLUMNS,
     MIN_SEGMENTS,
+    MODE_BARS,
+    MODE_WAVE,
     SpectrumSettings,
     SpectrumWidget,
     _gradient_color,
@@ -106,6 +108,132 @@ def test_settings_spin_boxes_drive_the_widget() -> None:
     settings.segments.setValue(10)
     assert spectrum.columns == 40
     assert spectrum.segments == 10
+
+
+class _RecordingVisualizer(FakeVisualizer):
+    """Remembers which of the two readings the widget asked for."""
+
+    def __init__(self) -> None:
+        super().__init__([0.5] * 8)
+        self.calls: list[str] = []
+
+    def bands(self) -> list[float]:
+        self.calls.append("bands")
+        return super().bands()
+
+    def wave(self) -> list[float]:
+        self.calls.append("wave")
+        return [0.5, -0.5, 1.0]
+
+
+def test_wave_mode_reads_only_the_wave() -> None:
+    visualizer = _RecordingVisualizer()
+    spectrum = SpectrumWidget(visualizer, mode=MODE_WAVE)
+    visualizer.calls.clear()
+    spectrum._refresh()
+    assert visualizer.calls == ["wave"]
+    assert spectrum._samples == [0.5, -0.5, 1.0]
+
+
+def test_bars_mode_reads_only_the_bands() -> None:
+    visualizer = _RecordingVisualizer()
+    spectrum = SpectrumWidget(visualizer, columns=4, mode=MODE_BARS)
+    visualizer.calls.clear()
+    spectrum._refresh()
+    assert visualizer.calls == ["bands"]
+    assert spectrum._levels == [0.5] * 4
+
+
+def test_set_mode_switches_the_data() -> None:
+    spectrum = SpectrumWidget(_RecordingVisualizer(), columns=4)
+    assert spectrum.mode == MODE_BARS
+    spectrum.set_mode(MODE_WAVE)
+    assert spectrum.mode == MODE_WAVE
+    assert spectrum._samples == [0.5, -0.5, 1.0]
+    spectrum.set_mode(MODE_BARS)
+    assert spectrum._levels == [0.5] * 4
+
+
+def test_set_columns_in_wave_mode_reads_the_wave() -> None:
+    visualizer = _RecordingVisualizer()
+    spectrum = SpectrumWidget(visualizer, mode=MODE_WAVE)
+    visualizer.calls.clear()
+    spectrum.set_columns(8)
+    assert visualizer.calls == ["wave"]
+    assert spectrum.columns == 8
+
+
+def _painted(image, x: int, y: int) -> bool:
+    """Whether a pixel differs from the empty background, which is read at a corner the line never reaches."""
+    return image.pixelColor(x, y) != image.pixelColor(79, 150)
+
+
+def test_wave_is_a_line_at_the_height_of_each_sample() -> None:
+    spectrum = SpectrumWidget(FakeVisualizer(), mode=MODE_WAVE)
+    spectrum.resize(80, 160)
+    spectrum._samples = [1.0] * 64  # the highest point: the top edge of the view
+    image = spectrum.grab().toImage()
+    assert _painted(image, 40, 1)
+    assert not _painted(image, 40, 80)
+
+
+def test_flat_wave_is_drawn_in_the_middle() -> None:
+    spectrum = SpectrumWidget(FakeVisualizer(), mode=MODE_WAVE)
+    spectrum.resize(80, 160)
+    spectrum._samples = [0.0] * 64
+    image = spectrum.grab().toImage()
+    assert _painted(image, 40, 80)
+    assert not _painted(image, 40, 5)
+
+
+def test_wave_without_samples_draws_nothing() -> None:
+    spectrum = SpectrumWidget(FakeVisualizer(), mode=MODE_WAVE)
+    spectrum.resize(80, 160)
+    spectrum._samples = [0.0]
+    image = spectrum.grab().toImage()
+    assert not _painted(image, 40, 80)
+
+
+def test_mode_combo_switches_the_widget_and_emits() -> None:
+    spectrum = SpectrumWidget(FakeVisualizer())
+    settings = SpectrumSettings(spectrum)
+    chosen: list[str] = []
+    settings.mode_changed.connect(chosen.append)
+    assert settings.mode.currentData() == MODE_BARS
+    settings.mode.setCurrentIndex(settings.mode.findData(MODE_WAVE))
+    assert spectrum.mode == MODE_WAVE
+    assert chosen == [MODE_WAVE]
+
+
+def test_clearing_the_mode_combo_changes_nothing() -> None:
+    spectrum = SpectrumWidget(FakeVisualizer(), mode=MODE_WAVE)
+    settings = SpectrumSettings(spectrum)
+    chosen: list[str] = []
+    settings.mode_changed.connect(chosen.append)
+    settings.mode.clear()
+    assert spectrum.mode == MODE_WAVE
+    assert chosen == []
+
+
+def test_size_inputs_are_only_enabled_for_bars() -> None:
+    spectrum = SpectrumWidget(FakeVisualizer(), mode=MODE_WAVE)
+    settings = SpectrumSettings(spectrum)
+    assert not settings.columns.isEnabled()
+    assert not settings.segments.isEnabled()
+    assert not settings._columns_label.isEnabled()
+    settings.mode.setCurrentIndex(settings.mode.findData(MODE_BARS))
+    assert settings.columns.isEnabled()
+    assert settings.segments.isEnabled()
+    assert settings._segments_label.isEnabled()
+
+
+def test_mode_labels_are_translated() -> None:
+    settings = SpectrumSettings(SpectrumWidget(FakeVisualizer()))
+    assert settings._mode_label.text() == "Tryb"
+    assert [settings.mode.itemText(index) for index in range(2)] == ["Słupki", "Fala"]
+    translator.set_language("en")
+    assert settings._mode_label.text() == "Mode"
+    assert [settings.mode.itemText(index) for index in range(2)] == ["Bars", "Wave"]
 
 
 def test_settings_labels() -> None:

@@ -6,7 +6,12 @@ from music_playa.interfaces import Visualizer
 from music_playa_gui.i18n import tr, translator
 from music_playa_gui.logo import scaled_logo
 from music_playa_gui.widgets.settings_panel import SettingsPanel
-from music_playa_gui.widgets.spectrum import DEFAULT_COLUMNS, DEFAULT_SEGMENTS, SpectrumWidget
+from music_playa_gui.widgets.spectrum import (
+    DEFAULT_COLUMNS,
+    DEFAULT_SEGMENTS,
+    MODE_BARS,
+    SpectrumWidget,
+)
 
 _DIM = QColor(18, 11, 46, 170)
 _GRADIENT_TOP = QColor(18, 11, 46)
@@ -29,6 +34,7 @@ class NowPlayingView(QWidget):
         visualizer: Visualizer,
         columns: int = DEFAULT_COLUMNS,
         segments: int = DEFAULT_SEGMENTS,
+        mode: str = MODE_BARS,
     ) -> None:
         super().__init__()
         self.setObjectName("nowPlaying")
@@ -37,7 +43,7 @@ class NowPlayingView(QWidget):
         self._logo: QPixmap | None = None
         self._ratio = 0.0
 
-        self._spectrum = SpectrumWidget(visualizer, columns, segments)
+        self._spectrum = SpectrumWidget(visualizer, columns, segments, mode)
 
         layout = QVBoxLayout(self)
         # The visualizer uses the full width and height of the view. Only the top keeps a strip

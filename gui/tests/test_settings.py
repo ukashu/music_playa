@@ -8,6 +8,8 @@ from music_playa_gui.widgets.spectrum import (
     MAX_SEGMENTS,
     MIN_COLUMNS,
     MIN_SEGMENTS,
+    MODE_BARS,
+    MODE_WAVE,
 )
 
 
@@ -56,6 +58,20 @@ def test_broken_values_fall_back_to_defaults() -> None:
     settings = AppSettings()
     assert settings.spectrum_columns() == DEFAULT_COLUMNS
     assert settings.spectrum_segments() == DEFAULT_SEGMENTS
+
+
+def test_spectrum_mode_defaults_to_bars() -> None:
+    assert AppSettings().spectrum_mode() == MODE_BARS
+
+
+def test_spectrum_mode_is_saved() -> None:
+    AppSettings().set_spectrum_mode(MODE_WAVE)
+    assert AppSettings().spectrum_mode() == MODE_WAVE
+
+
+def test_unknown_spectrum_mode_falls_back_to_bars() -> None:
+    _raw().setValue("spectrum/mode", "sphere")
+    assert AppSettings().spectrum_mode() == MODE_BARS
 
 
 def test_bounded_int() -> None:

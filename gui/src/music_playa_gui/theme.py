@@ -55,7 +55,6 @@ QWidget#trackTitle, QWidget#trackArtist, QWidget#titleArea, QWidget#optionsArea 
 }}
 QLabel#cover {{
     background-color: {SURFACE_HOVER};
-    border-radius: 8px;
 }}
 
 QWidget#sidebar, QWidget#playerBar {{

@@ -21,7 +21,9 @@ A local music player. The logic lives in the Python package `music_playa`. The T
 - change playback volume
 - jump to specific position in song playback (or maybe rewind buttons)
 - playback modes in order and shuffle, plus repeat off / repeat all / repeat one 
-- audio spectrum visualizer
+- stop playback (the next play starts from the beginning)
+- audio spectrum visualizer, as bars or as a wave (GUI)
+- track numbers from the tags in the GUI track list
 
 ## Layout
 

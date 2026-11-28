@@ -6,6 +6,7 @@ from music_playa.models import PlaybackMode, PlaybackState, RepeatMode
 from music_playa_gui.i18n import translator
 from music_playa_gui.main_window import MODES, REPEATS, MainWindow, _next_value
 from music_playa_gui.settings import AppSettings
+from music_playa_gui.widgets.spectrum import MODE_BARS, MODE_WAVE
 
 
 @pytest.fixture
@@ -179,6 +180,38 @@ def test_spectrum_size_is_saved_and_restored(window: MainWindow, tracks) -> None
     again = MainWindow(make_player(tracks), FakeLibrary(tracks), FakeVisualizer())
     spectrum = again._now_playing._spectrum
     assert (spectrum.columns, spectrum.segments) == (48, 12)
+
+
+def test_stop_button_stops_and_resets_the_progress(window: MainWindow) -> None:
+    window.play_track(1)
+    window._player_bar.set_progress(30.0, 180.0)
+    window._player_bar._stop.click()
+    window.poll_progress()
+    assert window.player.state is PlaybackState.STOPPED
+    assert window.player.position == 0.0
+    assert window._player_bar._progress.value() == 0
+    assert window._player_bar._elapsed.text() == "0:00"
+    assert window._player_bar._toggle.text() == "▶"
+
+
+def test_stop_then_play_starts_from_the_beginning(window: MainWindow, tracks) -> None:
+    window.play_track(0)
+    window.player.seek(40.0)
+    window.stop_playback()
+    window.toggle_playback()
+    assert window.player.current == tracks[0]
+    assert window.player.position == 0.0
+    assert window.player.state is PlaybackState.PLAYING
+
+
+def test_spectrum_mode_is_saved_and_restored(window: MainWindow, tracks) -> None:
+    spectrum_settings = window._now_playing.settings_panel.spectrum_settings
+    assert AppSettings().spectrum_mode() == MODE_BARS
+    spectrum_settings.mode.setCurrentIndex(spectrum_settings.mode.findData(MODE_WAVE))
+    assert AppSettings().spectrum_mode() == MODE_WAVE
+    again = MainWindow(make_player(tracks), FakeLibrary(tracks), FakeVisualizer())
+    assert again._now_playing._spectrum.mode == MODE_WAVE
+    assert again._now_playing.settings_panel.spectrum_settings.mode.currentData() == MODE_WAVE
 
 
 def test_language_choice_in_the_panel(window: MainWindow) -> None:

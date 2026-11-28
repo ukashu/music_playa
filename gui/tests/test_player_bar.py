@@ -4,9 +4,15 @@ from PySide6.QtGui import QColor, QPixmap
 
 from music_playa.models import PlaybackMode, RepeatMode
 from music_playa_gui.i18n import translator
-from music_playa_gui.theme import CYAN
+from music_playa_gui.theme import CYAN, SURFACE
 from music_playa_gui.widgets.icons import ICON_PX
-from music_playa_gui.widgets.player_bar import PROGRESS_STEPS, THUMB_SIZE, PlayerBar
+from music_playa_gui.widgets.player_bar import (
+    EDGE_MARGIN,
+    PLAYER_BORDER,
+    PROGRESS_STEPS,
+    THUMB_SIZE,
+    PlayerBar,
+)
 
 
 def _record(signal) -> list:
@@ -231,7 +237,7 @@ def test_thumbnail_follows_a_ratio_change() -> None:
     bar.grab()
     assert shown[-1].devicePixelRatio() == 2.0
     assert shown[-1].width() == 2 * THUMB_SIZE
-    assert abs(shown[-1].height() - 2 * THUMB_SIZE * 2 / 3) <= 1
+    assert shown[-1].height() == 2 * THUMB_SIZE
 
 
 def test_logo_thumbnail_without_a_cover() -> None:
@@ -339,3 +345,75 @@ def test_easing_pauses_while_dragging() -> None:
     bar._ease_progress()
     assert bar._shown_position == 10.0
     bar._progress.setSliderDown(False)
+
+
+def test_cover_is_a_square_in_the_bottom_left_corner(shown) -> None:
+    """The cover fills the bar's height, touches the left edge and has no margin."""
+    bar = PlayerBar()
+    bar.resize(900, bar.height())
+    shown(bar)
+    thumb = bar._thumb
+    assert thumb.width() == thumb.height() == THUMB_SIZE
+    assert thumb.height() == bar.height() - PLAYER_BORDER
+    assert thumb.mapTo(bar, thumb.rect().topLeft()).x() == 0
+    assert thumb.mapTo(bar, thumb.rect().topLeft()).y() == PLAYER_BORDER
+
+
+def test_wide_cover_gets_bars_on_top_and_bottom() -> None:
+    bar = PlayerBar()
+    bar.set_track(make_tracks(1)[0], png_bytes(400, 100, "#3060c0"))
+    image = bar._thumb.pixmap().toImage()
+    assert (image.width(), image.height()) == (THUMB_SIZE, THUMB_SIZE)
+    centre = THUMB_SIZE // 2
+    # 4:1 picture: it is about 24 px tall in the middle, so the bars above and below are background.
+    assert image.pixelColor(centre, 0) == QColor(SURFACE)
+    assert image.pixelColor(centre, THUMB_SIZE - 1) == QColor(SURFACE)
+    assert image.pixelColor(centre, centre) == QColor("#3060c0")
+    # The whole width is the cover, so the left and right edges are not background.
+    assert image.pixelColor(0, centre) == QColor("#3060c0")
+
+
+def test_tall_cover_gets_bars_on_the_sides() -> None:
+    bar = PlayerBar()
+    bar.set_track(make_tracks(1)[0], png_bytes(100, 400, "#3060c0"))
+    image = bar._thumb.pixmap().toImage()
+    centre = THUMB_SIZE // 2
+    assert image.pixelColor(0, centre) == QColor(SURFACE)
+    assert image.pixelColor(THUMB_SIZE - 1, centre) == QColor(SURFACE)
+    assert image.pixelColor(centre, 0) == QColor("#3060c0")
+
+
+def test_square_cover_has_no_bars() -> None:
+    bar = PlayerBar()
+    bar.set_track(make_tracks(1)[0], png_bytes(300, 300, "#3060c0"))
+    image = bar._thumb.pixmap().toImage()
+    for x, y in ((0, 0), (THUMB_SIZE - 1, 0), (0, THUMB_SIZE - 1), (THUMB_SIZE - 1, THUMB_SIZE - 1)):
+        assert image.pixelColor(x, y) == QColor("#3060c0")
+
+
+def test_stop_button_emits_and_is_labelled() -> None:
+    bar = PlayerBar()
+    stops = _record(bar.stop_clicked)
+    bar._stop.click()
+    assert len(stops) == 1
+    assert bar._stop.toolTip() == "Zatrzymaj"
+    translator.set_language("en")
+    assert bar._stop.toolTip() == "Stop"
+
+
+def test_stop_button_is_on_the_right_next_to_the_speaker(shown) -> None:
+    bar = PlayerBar()
+    bar.resize(900, bar.height())
+    shown(bar)
+    stop = bar._stop
+    centre = stop.mapTo(bar, stop.rect().center()).x()
+    assert centre > bar.width() / 2
+    assert centre < bar._speaker.mapTo(bar, bar._speaker.rect().center()).x()
+
+
+def test_options_are_not_at_the_window_edge(shown) -> None:
+    bar = PlayerBar()
+    bar.resize(900, bar.height())
+    shown(bar)
+    volume = bar._volume
+    assert bar.width() - volume.mapTo(bar, volume.rect().topRight()).x() == EDGE_MARGIN + 1

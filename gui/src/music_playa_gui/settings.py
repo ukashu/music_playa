@@ -1,4 +1,4 @@
-"""Persistent GUI settings (language and spectrum size), stored with QSettings."""
+"""Persistent GUI settings (language and spectrum mode and size), stored with QSettings."""
 
 from PySide6.QtCore import QSettings
 
@@ -11,6 +11,8 @@ from music_playa_gui.widgets.spectrum import (
     MAX_SEGMENTS,
     MIN_COLUMNS,
     MIN_SEGMENTS,
+    MODE_BARS,
+    SPECTRUM_MODES,
 )
 
 
@@ -46,3 +48,10 @@ class AppSettings:
 
     def set_spectrum_segments(self, segments: int) -> None:
         self._store.setValue("spectrum/segments", segments)
+
+    def spectrum_mode(self) -> str:
+        value = self._store.value("spectrum/mode")
+        return value if value in SPECTRUM_MODES else MODE_BARS
+
+    def set_spectrum_mode(self, mode: str) -> None:
+        self._store.setValue("spectrum/mode", mode)

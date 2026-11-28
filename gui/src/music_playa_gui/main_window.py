@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
             visualizer,
             self._settings.spectrum_columns(),
             self._settings.spectrum_segments(),
+            self._settings.spectrum_mode(),
         )
         self._player_bar = PlayerBar()
 
@@ -64,6 +65,7 @@ class MainWindow(QMainWindow):
         self._player_bar.previous_clicked.connect(lambda: self.player.previous())
         self._player_bar.next_clicked.connect(lambda: self.player.next())
         self._player_bar.toggle_clicked.connect(self.toggle_playback)
+        self._player_bar.stop_clicked.connect(self.stop_playback)
         self._player_bar.mode_clicked.connect(self.cycle_mode)
         self._player_bar.repeat_clicked.connect(self.cycle_repeat)
         self._player_bar.seek_requested.connect(lambda position: self.player.seek(position))
@@ -74,6 +76,7 @@ class MainWindow(QMainWindow):
         panel.language_selected.connect(self.change_language)
         panel.spectrum_settings.columns.valueChanged.connect(self._settings.set_spectrum_columns)
         panel.spectrum_settings.segments.valueChanged.connect(self._settings.set_spectrum_segments)
+        panel.spectrum_settings.mode_changed.connect(self._settings.set_spectrum_mode)
 
         self._player_bar.set_mode(self.player.mode)
         self._player_bar.set_repeat(self.player.repeat)
@@ -107,6 +110,10 @@ class MainWindow(QMainWindow):
             self.player.pause()
         else:
             self.player.play()
+        self._sync_playing()
+
+    def stop_playback(self) -> None:
+        self.player.stop()
         self._sync_playing()
 
     def cycle_mode(self) -> None:
