@@ -5,4 +5,12 @@ __pycache__/
 .pytest_cache/
 *.pyc
 
+# Coverage data and HTML reports (pytest --cov)
+.coverage
+.coverage.*
+htmlcov/
+
+# mutmut output: copies of the sources with mutants applied
+mutants/
+
 *.mp3
