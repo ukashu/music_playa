@@ -13,8 +13,47 @@ dependencies = [
     "python-dotenv",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "mutmut"]
+
 [project.scripts]
 music-playa-gui = "music_playa_gui.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+music_playa_gui = ["assets/*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["music_playa_gui"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 95
+exclude_also = ['if __name__ == "__main__":']
+
+# Only the modules with logic are mutated: mutants of drawing code are mostly equivalent
+# (a pixel more or less) and would only slow the run down.
+[tool.mutmut]
+source_paths = ["src/"]
+only_mutate = [
+    "src/music_playa_gui/utils.py",
+    "src/music_playa_gui/bass.py",
+    "src/music_playa_gui/i18n.py",
+    "src/music_playa_gui/settings.py",
+    "src/music_playa_gui/widgets/spectrum.py",
+    "src/music_playa_gui/widgets/backdrop.py",
+    "src/music_playa_gui/main_window.py",
+]
+pytest_add_cli_args_test_selection = ["tests/"]
+# One failing test is enough to kill a mutant.
+pytest_add_cli_args = ["-x"]
+# Workers forked from the main process inherit its QApplication and hang or misreport, so they
+# are forked from a server process that has imported the tests but not started Qt.
+process_isolation = "forkserver"

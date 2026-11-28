@@ -21,7 +21,9 @@ A local music player. The logic lives in the Python package `music_playa`. The T
 - change playback volume
 - jump to specific position in song playback (or maybe rewind buttons)
 - playback modes in order and shuffle, plus repeat off / repeat all / repeat one 
-- audio spectrum visualizer
+- stop playback (the next play starts from the beginning)
+- audio spectrum visualizer, as bars or as a wave (GUI)
+- track numbers from the tags in the GUI track list
 
 ## Layout
 
@@ -32,7 +34,9 @@ music_playa/
 ├── scripts/
 │   ├── setup.sh
 │   ├── run_tui.sh
-│   └── run_gui.sh
+│   ├── run_gui.sh
+│   ├── mutation_gui.sh
+│   └── bake_flamingo.py
 ├── backend/          # core library
 ├── tui/              # Textual app
 └── gui/              # PySide6 app
@@ -56,7 +60,7 @@ python3.15 -m venv tui/.venv
 tui/.venv/bin/pip install -e ./backend -e ./tui
 
 python3.15 -m venv gui/.venv
-gui/.venv/bin/pip install -e ./backend -e ./gui
+gui/.venv/bin/pip install -e ./backend -e "./gui[dev]"
 ```
 
 ## Run
@@ -87,4 +91,11 @@ Core tests, coverage and mutation testing, using the backend `.venv` (details in
 backend/.venv/bin/pytest
 cd backend && .venv/bin/pytest --cov
 scripts/mutation_backend.sh
+```
+
+GUI tests and mutation testing, using the GUI `.venv` (details in `gui/README.md`):
+
+```bash
+cd gui && .venv/bin/pytest
+scripts/mutation_gui.sh
 ```

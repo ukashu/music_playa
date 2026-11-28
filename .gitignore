@@ -4,6 +4,7 @@ __pycache__/
 .env
 .pytest_cache/
 *.pyc
+mutants/
 
 # Coverage data and HTML reports (pytest --cov)
 .coverage
@@ -14,3 +15,5 @@ htmlcov/
 mutants/
 
 *.mp3
+htmlcov/
+.coverage
