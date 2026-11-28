@@ -1,7 +1,16 @@
 import pytest
 from PySide6.QtCore import QSize
 
-from music_playa_gui.widgets.backdrop import GRID_HORIZONTAL_LINES, grid_pixmap
+from PySide6.QtGui import QColor
+
+from music_playa_gui.theme import PINK
+from music_playa_gui.widgets.backdrop import (
+    GRID_GLOW_BOOST,
+    GRID_HORIZONTAL_LINES,
+    _fade,
+    _passes,
+    grid_pixmap,
+)
 
 
 @pytest.mark.parametrize("ratio", [1.0, 1.5, 2.0])
@@ -81,3 +90,83 @@ def test_fades_toward_the_bottom() -> None:
     top = max(image.pixelColor(x, 1).alpha() for x in range(400))
     bottom = max(image.pixelColor(x, 98).alpha() for x in range(400))
     assert top > bottom
+
+
+def _lit_pixels(image) -> int:
+    return sum(
+        image.pixelColor(x, y).alpha() > 0 for x in range(image.width()) for y in range(image.height())
+    )
+
+
+def _glow_grid(boost: float):
+    return grid_pixmap(QSize(400, 100), 1.0, 200, 100, boost).toImage()
+
+
+def test_a_boost_of_one_is_the_normal_grid() -> None:
+    assert _glow_grid(1.0) == grid_pixmap(QSize(400, 100), 1.0, 200, 100).toImage()
+
+
+def test_a_boosted_grid_has_stronger_lines() -> None:
+    normal, glowing = _glow_grid(1.0), _glow_grid(GRID_GLOW_BOOST)
+    assert max(glowing.pixelColor(x, 1).alpha() for x in range(400)) > 2 * max(
+        normal.pixelColor(x, 1).alpha() for x in range(400)
+    )
+    assert max(glowing.pixelColor(x, 98).alpha() for x in range(400)) > max(
+        normal.pixelColor(x, 98).alpha() for x in range(400)
+    )
+
+
+def test_boosted_alpha_stops_at_full_opacity() -> None:
+    glowing = grid_pixmap(QSize(400, 100), 1.0, 200, 100, 10.0).toImage()
+    assert max(glowing.pixelColor(x, 1).alpha() for x in range(400)) <= 255
+    assert max(glowing.pixelColor(x, 1).alpha() for x in range(400)) > 240
+
+
+def test_a_boosted_grid_has_thicker_lines_and_a_halo() -> None:
+    normal, glowing = _glow_grid(1.0), _glow_grid(GRID_GLOW_BOOST)
+    assert _lit_pixels(glowing) > 2 * _lit_pixels(normal)
+    # The halo is lit where the normal grid has nothing.
+    assert any(
+        glowing.pixelColor(x, y).alpha() > 0 and normal.pixelColor(x, y).alpha() == 0
+        for x in range(400)
+        for y in range(100)
+    )
+
+
+def test_the_halo_starts_as_soon_as_the_boost_is_above_one() -> None:
+    assert _lit_pixels(_glow_grid(1.01)) > _lit_pixels(_glow_grid(1.0))
+
+
+def test_a_normal_grid_is_one_thin_stroke() -> None:
+    assert _passes(1.0) == [(1.0, 1.0)]
+
+
+def test_a_glowing_grid_has_a_wide_faint_halo_under_thicker_lines() -> None:
+    halo, lines = _passes(3.0)
+    assert halo == pytest.approx((5.0, 0.75))
+    assert lines == pytest.approx((1.6, 3.0))
+
+
+def test_the_halo_is_drawn_first() -> None:
+    assert _passes(2.0)[0][0] > _passes(2.0)[1][0]
+
+
+def _stops(gradient) -> list[tuple[float, QColor]]:
+    return [(position, colour) for position, colour in gradient.stops()]
+
+
+def test_the_fade_goes_from_the_top_to_the_bottom_in_pink() -> None:
+    gradient = _fade(80.0, 1.0)
+    assert (gradient.start().x(), gradient.start().y()) == (0.0, 0.0)
+    assert (gradient.finalStop().x(), gradient.finalStop().y()) == (0.0, 80.0)
+    (top_at, top), (bottom_at, bottom) = _stops(gradient)
+    assert (top_at, bottom_at) == (0.0, 1.0)
+    assert top.rgb() == bottom.rgb() == QColor(PINK).rgb()
+    assert (top.alpha(), bottom.alpha()) == (100, 40)
+
+
+def test_the_fade_scales_the_alpha_and_stops_at_full_opacity() -> None:
+    (_, top), (_, bottom) = _stops(_fade(80.0, 0.5))
+    assert (top.alpha(), bottom.alpha()) == (50, 20)
+    (_, top), (_, bottom) = _stops(_fade(80.0, 10.0))
+    assert (top.alpha(), bottom.alpha()) == (255, 255)

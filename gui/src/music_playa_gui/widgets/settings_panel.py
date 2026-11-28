@@ -1,6 +1,7 @@
 from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, Signal
-from PySide6.QtWidgets import QComboBox, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QLabel, QVBoxLayout, QWidget
 
+from music_playa_gui.cover_style import COVER_STYLE_LABEL_KEYS, COVER_STYLES, DEFAULT_COVER_STYLE
 from music_playa_gui.i18n import LANGUAGES, tr, translator
 from music_playa_gui.widgets.spectrum import SpectrumSettings, SpectrumWidget
 
@@ -12,8 +13,15 @@ class SettingsPanel(QWidget):
     """Panel that slides in from the right edge of its parent widget."""
 
     language_selected = Signal(str)
+    cover_style_selected = Signal(str)
+    bass_glow_toggled = Signal(bool)
 
-    def __init__(self, spectrum: SpectrumWidget, parent: QWidget) -> None:
+    def __init__(
+        self,
+        spectrum: SpectrumWidget,
+        parent: QWidget,
+        cover_style: str = DEFAULT_COVER_STYLE,
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("settingsPanel")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -25,6 +33,18 @@ class SettingsPanel(QWidget):
         self._spectrum_heading = QLabel()
         self._spectrum_heading.setObjectName("sectionTitle")
         self.spectrum_settings = SpectrumSettings(spectrum)
+        self._cover_heading = QLabel()
+        self._cover_heading.setObjectName("sectionTitle")
+        self.cover_box = QComboBox()
+        for style in COVER_STYLES:
+            self.cover_box.addItem("", style)
+        self.cover_box.setCurrentIndex(max(self.cover_box.findData(cover_style), 0))
+        self.cover_box.currentIndexChanged.connect(self._on_cover_style_chosen)
+        self._effects_heading = QLabel()
+        self._effects_heading.setObjectName("sectionTitle")
+        self.bass_glow_box = QCheckBox()
+        self.bass_glow_box.setChecked(spectrum.bass_glow)
+        self.bass_glow_box.toggled.connect(self.bass_glow_toggled)
         self._language_heading = QLabel()
         self._language_heading.setObjectName("sectionTitle")
         self.language_box = QComboBox()
@@ -39,6 +59,12 @@ class SettingsPanel(QWidget):
         layout.addSpacing(16)
         layout.addWidget(self._spectrum_heading)
         layout.addWidget(self.spectrum_settings)
+        layout.addSpacing(16)
+        layout.addWidget(self._cover_heading)
+        layout.addWidget(self.cover_box)
+        layout.addSpacing(16)
+        layout.addWidget(self._effects_heading)
+        layout.addWidget(self.bass_glow_box)
         layout.addSpacing(16)
         layout.addWidget(self._language_heading)
         layout.addWidget(self.language_box)
@@ -81,6 +107,11 @@ class SettingsPanel(QWidget):
     def retranslate(self) -> None:
         self._title.setText(tr("settings.title"))
         self._spectrum_heading.setText(tr("settings.spectrum"))
+        self._cover_heading.setText(tr("settings.cover"))
+        for position, style in enumerate(COVER_STYLES):
+            self.cover_box.setItemText(position, tr(COVER_STYLE_LABEL_KEYS[style]))
+        self._effects_heading.setText(tr("settings.effects"))
+        self.bass_glow_box.setText(tr("settings.bass_glow"))
         self._language_heading.setText(tr("settings.language"))
         index = self.language_box.findData(translator.language)
         if index >= 0 and index != self.language_box.currentIndex():
@@ -97,6 +128,11 @@ class SettingsPanel(QWidget):
     def _on_slide_finished(self) -> None:
         if not self._open:
             self.hide()
+
+    def _on_cover_style_chosen(self, index: int) -> None:
+        style = self.cover_box.itemData(index)
+        if style is not None:
+            self.cover_style_selected.emit(style)
 
     def _on_language_chosen(self, index: int) -> None:
         code = self.language_box.itemData(index)

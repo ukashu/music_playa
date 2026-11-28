@@ -28,7 +28,7 @@ from music_playa_gui.i18n import tr, translator
 from music_playa_gui.logo import scaled_logo
 from music_playa_gui.theme import CYAN, SURFACE, TEXT, TEXT_MUTED
 from music_playa_gui.utils import clamp, format_time
-from music_playa_gui.widgets.backdrop import grid_pixmap
+from music_playa_gui.widgets.backdrop import GRID_GLOW_BOOST, grid_pixmap
 from music_playa_gui.widgets.icons import ICON_PX, Icon, make_icon, stroke_pen
 from music_playa_gui.widgets.marquee_label import MarqueeLabel
 
@@ -218,6 +218,9 @@ class PlayerBar(QWidget):
         self._repeat_mode = RepeatMode.OFF
         self._grid: QPixmap | None = None
         self._grid_key: tuple | None = None
+        self._grid_args: tuple | None = None  # what the grid was made from
+        self._grid_glow: QPixmap | None = None  # the glowing grid, made when the bass first needs it
+        self._glow = 0.0
         self._cover: QImage | None = None  # the thumbnail shows the logo when None
         self._thumb_ratio = 0.0
 
@@ -255,7 +258,9 @@ class PlayerBar(QWidget):
         if key == self._grid_key:
             return
         self._grid_key = key
-        self._grid = grid_pixmap(size, self.devicePixelRatioF(), vanishing_x, horizon)
+        self._grid_args = (size, self.devicePixelRatioF(), vanishing_x, horizon)
+        self._grid = grid_pixmap(*self._grid_args)
+        self._grid_glow = None
         if update:
             self.update()
 
@@ -271,7 +276,24 @@ class PlayerBar(QWidget):
         if self._grid is not None:
             painter = QPainter(self)
             painter.drawPixmap(0, 1, self._grid)
+            if self._glow > 0.0:
+                # The glowing grid goes over the normal one, as opaque as the bass is strong.
+                painter.setOpacity(self._glow)
+                painter.drawPixmap(0, 1, self._glowing_grid())
             painter.end()
+
+    def set_glow(self, level: float) -> None:
+        """Make the grid glow; level is how strongly the bass hits, 0 (not at all) to 1."""
+        level = clamp(level, 0.0, 1.0)
+        if level != self._glow:
+            self._glow = level
+            self.update()
+
+    def _glowing_grid(self) -> QPixmap:
+        # Made from the same arguments as the grid, so it has the same size and vanishing point.
+        if self._grid_glow is None:
+            self._grid_glow = grid_pixmap(*self._grid_args, GRID_GLOW_BOOST)
+        return self._grid_glow
 
     def _build_info(self) -> QWidget:
         self._thumb = QLabel()

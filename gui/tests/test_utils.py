@@ -1,6 +1,6 @@
 import pytest
 
-from music_playa_gui.utils import clamp, format_time
+from music_playa_gui.utils import advance_angle, clamp, format_time
 
 
 @pytest.mark.parametrize(
@@ -33,3 +33,23 @@ def test_clamp_float() -> None:
     assert clamp(0.25, 0.0, 1.0) == 0.25
     assert clamp(-0.5, 0.0, 1.0) == 0.0
     assert clamp(1.5, 0.0, 1.0) == 1.0
+
+
+@pytest.mark.parametrize(
+    ("angle", "elapsed", "period", "expected"),
+    [
+        (0.0, 1.0, 4.0, 90.0),
+        (90.0, 1.0, 4.0, 180.0),
+        (0.0, 2.0, 8.0, 90.0),
+        (350.0, 1.0, 4.0, 80.0),
+        (0.0, 4.0, 4.0, 0.0),
+        (10.0, 0.0, 4.0, 10.0),
+        (10.0, 9.0, 4.0, 100.0),
+    ],
+)
+def test_advance_angle(angle: float, elapsed: float, period: float, expected: float) -> None:
+    assert advance_angle(angle, elapsed, period) == pytest.approx(expected)
+
+
+def test_advance_angle_does_not_turn_back_when_the_clock_goes_backwards() -> None:
+    assert advance_angle(45.0, -3.0, 4.0) == 45.0

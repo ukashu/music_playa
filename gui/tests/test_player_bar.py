@@ -417,3 +417,82 @@ def test_options_are_not_at_the_window_edge(shown) -> None:
     shown(bar)
     volume = bar._volume
     assert bar.width() - volume.mapTo(bar, volume.rect().topRight()).x() == EDGE_MARGIN + 1
+
+
+def _pinkness(image) -> int:
+    """How much pink the image has (red above green); the plain background has none."""
+    return sum(
+        max(image.pixelColor(x, y).red() - image.pixelColor(x, y).green(), 0)
+        for x in range(image.width())
+        for y in range(image.height())
+    )
+
+
+def _grid_bar() -> PlayerBar:
+    bar = PlayerBar()
+    bar.resize(800, bar.height())
+    bar.grab()  # the first grab of a new widget is made before its style is applied
+    return bar
+
+
+def test_the_grid_does_not_glow_at_rest() -> None:
+    bar = _grid_bar()
+    bar.grab()
+    assert bar._glow == 0.0
+    assert bar._grid_glow is None
+
+
+def test_the_grid_glows_with_the_bass_and_goes_back() -> None:
+    bar = _grid_bar()
+    resting = bar.grab().toImage()
+    bar.set_glow(1.0)
+    glowing = bar.grab().toImage()
+    assert _pinkness(glowing) > _pinkness(resting)
+    bar.set_glow(0.0)
+    assert bar.grab().toImage() == resting
+
+
+def test_a_weaker_bass_lights_the_grid_less() -> None:
+    bar = _grid_bar()
+    bar.set_glow(0.3)
+    weak = _pinkness(bar.grab().toImage())
+    bar.set_glow(1.0)
+    assert _pinkness(bar.grab().toImage()) > weak
+
+
+def test_the_glow_level_is_kept_between_zero_and_one() -> None:
+    bar = _grid_bar()
+    bar.set_glow(2.0)
+    assert bar._glow == 1.0
+    bar.set_glow(-2.0)
+    assert bar._glow == 0.0
+
+
+def test_the_same_glow_level_does_not_repaint(monkeypatch) -> None:
+    bar = _grid_bar()
+    updates: list[int] = []
+    monkeypatch.setattr(bar, "update", lambda *args: updates.append(1))
+    bar.set_glow(0.4)
+    bar.set_glow(0.4)
+    assert len(updates) == 1
+
+
+def test_the_glowing_grid_is_made_once_and_has_the_size_of_the_grid() -> None:
+    bar = _grid_bar()
+    bar.set_glow(0.5)
+    bar.grab()
+    glowing = bar._glowing_grid()
+    assert bar._glowing_grid() is glowing
+    assert glowing.size() == bar._grid.size()
+
+
+def test_the_glowing_grid_follows_a_new_ratio() -> None:
+    bar = _grid_bar()
+    bar.set_glow(0.5)
+    bar.grab()
+    first = bar._glowing_grid()
+    bar.devicePixelRatioF = lambda: 2.0
+    bar.grab()
+    assert bar._grid_glow is None or bar._grid_glow is not first
+    assert bar._glowing_grid().devicePixelRatio() == 2.0
+    assert bar._glowing_grid().width() == 2 * bar.width()

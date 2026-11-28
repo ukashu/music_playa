@@ -44,6 +44,7 @@ exclude_also = ['if __name__ == "__main__":']
 source_paths = ["src/"]
 only_mutate = [
     "src/music_playa_gui/utils.py",
+    "src/music_playa_gui/bass.py",
     "src/music_playa_gui/i18n.py",
     "src/music_playa_gui/settings.py",
     "src/music_playa_gui/widgets/spectrum.py",

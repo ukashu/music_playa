@@ -202,6 +202,23 @@ QLabel#sectionTitle {{
 QWidget#settingsPanel QSpinBox, QWidget#settingsPanel QComboBox {{
     background-color: {BACKGROUND};
 }}
+QCheckBox {{
+    spacing: 8px;
+}}
+QCheckBox::indicator {{
+    width: 16px;
+    height: 16px;
+    border: 1px solid {BORDER};
+    border-radius: 4px;
+    background-color: {BACKGROUND};
+}}
+QCheckBox::indicator:checked {{
+    background-color: {PINK};
+    border-color: {PINK};
+}}
+QCheckBox::indicator:focus {{
+    border-color: {CYAN};
+}}
 QComboBox {{
     background-color: {SURFACE};
     border: 1px solid {BORDER};

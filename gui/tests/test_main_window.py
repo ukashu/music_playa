@@ -3,10 +3,11 @@ from conftest import FakeLibrary, FakeVisualizer, make_player, make_tracks, png_
 from PySide6.QtCore import QPoint, QRect
 
 from music_playa.models import PlaybackMode, PlaybackState, RepeatMode
+from music_playa_gui.cover_style import COVER_DISC, COVER_FILL
 from music_playa_gui.i18n import translator
 from music_playa_gui.main_window import MODES, REPEATS, MainWindow, _next_value
 from music_playa_gui.settings import AppSettings
-from music_playa_gui.widgets.spectrum import MODE_BARS, MODE_WAVE
+from music_playa_gui.widgets.spectrum import BACKGROUND_BARS, BACKGROUND_NONE, MODE_BARS, MODE_WAVE
 
 
 @pytest.fixture
@@ -214,8 +215,93 @@ def test_spectrum_mode_is_saved_and_restored(window: MainWindow, tracks) -> None
     assert again._now_playing.settings_panel.spectrum_settings.mode.currentData() == MODE_WAVE
 
 
+def test_spectrum_background_is_saved_and_restored(window: MainWindow, tracks) -> None:
+    spectrum_settings = window._now_playing.settings_panel.spectrum_settings
+    assert AppSettings().spectrum_background() == BACKGROUND_NONE
+    spectrum_settings.background.setCurrentIndex(spectrum_settings.background.findData(BACKGROUND_BARS))
+    assert AppSettings().spectrum_background() == BACKGROUND_BARS
+    again = MainWindow(make_player(tracks), FakeLibrary(tracks), FakeVisualizer())
+    assert again._now_playing._spectrum.background == BACKGROUND_BARS
+    assert again._now_playing.settings_panel.spectrum_settings.background.currentData() == BACKGROUND_BARS
+
+
 def test_language_choice_in_the_panel(window: MainWindow) -> None:
     box = window._now_playing.settings_panel.language_box
     box.setCurrentIndex(box.findData("en"))
     assert translator.language == "en"
     assert AppSettings().language() == "en"
+
+
+def test_cover_style_is_saved_and_restored(window: MainWindow, tracks) -> None:
+    box = window._now_playing.settings_panel.cover_box
+    assert AppSettings().cover_style() == COVER_FILL
+    box.setCurrentIndex(box.findData(COVER_DISC))
+    assert window._now_playing.cover_style == COVER_DISC
+    assert AppSettings().cover_style() == COVER_DISC
+    again = MainWindow(make_player(tracks), FakeLibrary(tracks), FakeVisualizer())
+    assert again._now_playing.cover_style == COVER_DISC
+    assert again._now_playing.settings_panel.cover_box.currentData() == COVER_DISC
+
+
+def test_disc_turns_while_the_player_plays(window: MainWindow) -> None:
+    now_playing = window._now_playing
+    now_playing.set_cover_style(COVER_DISC)
+    assert not now_playing._spin_timer.isActive()
+
+    window.toggle_playback()
+    assert now_playing._spin_timer.isActive()
+
+    window.toggle_playback()
+    assert not now_playing._spin_timer.isActive()
+
+
+def test_disc_stops_when_the_player_is_stopped(window: MainWindow) -> None:
+    now_playing = window._now_playing
+    now_playing.set_cover_style(COVER_DISC)
+    window.toggle_playback()
+    window.stop_playback()
+    assert not now_playing._spin_timer.isActive()
+
+
+def test_disc_stops_when_the_player_stops_on_its_own(window: MainWindow) -> None:
+    now_playing = window._now_playing
+    now_playing.set_cover_style(COVER_DISC)
+    window.toggle_playback()
+    window.player.stop()
+    window.poll_progress()
+    assert not now_playing._spin_timer.isActive()
+
+
+def test_bass_glow_is_on_by_default_and_the_box_shows_it(window: MainWindow) -> None:
+    assert AppSettings().bass_glow() is True
+    assert window._now_playing._spectrum.bass_glow is True
+    assert window._now_playing.settings_panel.bass_glow_box.isChecked() is True
+
+
+def test_bass_glow_is_saved_and_restored(window: MainWindow, tracks) -> None:
+    box = window._now_playing.settings_panel.bass_glow_box
+    box.setChecked(False)
+    assert AppSettings().bass_glow() is False
+    assert window._now_playing._spectrum.bass_glow is False
+    again = MainWindow(make_player(tracks), FakeLibrary(tracks), FakeVisualizer())
+    assert again._now_playing._spectrum.bass_glow is False
+    assert again._now_playing.settings_panel.bass_glow_box.isChecked() is False
+    box.setChecked(True)
+    assert AppSettings().bass_glow() is True
+    assert window._now_playing._spectrum.bass_glow is True
+
+
+def test_the_bass_level_reaches_the_sidebar_and_the_player_bar(window: MainWindow) -> None:
+    window._now_playing.bass_changed.emit(0.5)
+    assert window._sidebar._glow == 0.5
+    assert window._player_bar._glow == 0.5
+
+
+def test_turning_the_bass_glow_off_puts_the_elements_out(window: MainWindow) -> None:
+    spectrum = window._now_playing._spectrum
+    spectrum._bass_level = 0.5  # as if the elements had been lit by the last frame
+    window._sidebar.set_glow(0.5)
+    window._player_bar.set_glow(0.5)
+    window._now_playing.settings_panel.bass_glow_box.setChecked(False)
+    assert window._sidebar._glow == 0.0
+    assert window._player_bar._glow == 0.0

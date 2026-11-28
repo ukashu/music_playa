@@ -2,7 +2,7 @@ import pytest
 from PySide6.QtCore import QSize
 
 from music_playa_gui.widgets import flamingo
-from music_playa_gui.widgets.flamingo import RIGHT_MARGIN, flamingo_pixmap
+from music_playa_gui.widgets.flamingo import BIRD_OPACITY, RIGHT_MARGIN, flamingo_pixmap, halo_padding
 
 
 def _opaque_bounds(image) -> tuple[int, int, int, int]:
@@ -50,3 +50,45 @@ def test_tinted_bird_is_cached_by_size() -> None:
     first = flamingo._bird_image(40, 60)
     assert flamingo._bird_image(40, 60) is first
     assert flamingo._bird_image(41, 60) is not first
+
+
+def _max_alpha(image) -> int:
+    return max(image.pixelColor(x, y).alpha() for x in range(image.width()) for y in range(image.height()))
+
+
+def _lit_pixels(image) -> int:
+    return sum(
+        image.pixelColor(x, y).alpha() > 0 for x in range(image.width()) for y in range(image.height())
+    )
+
+
+def test_the_bird_is_drawn_dimmed_and_the_glowing_one_at_full_opacity() -> None:
+    normal = flamingo_pixmap(QSize(340, 300), 30, 200).toImage()
+    glowing = flamingo_pixmap(QSize(340, 300), 30, 200, glow=True).toImage()
+    assert _max_alpha(normal) <= round(255 * BIRD_OPACITY) + 2
+    assert _max_alpha(glowing) > 240
+
+
+def test_the_glowing_bird_has_a_halo_that_is_not_cut_off() -> None:
+    normal = flamingo_pixmap(QSize(340, 300), 30, 200).toImage()
+    glowing = flamingo_pixmap(QSize(340, 300), 30, 200, glow=True).toImage()
+    assert _lit_pixels(glowing) > _lit_pixels(normal)
+    left, upper, right, lower = _opaque_bounds(normal)
+    # The halo is lit beyond the bird on every side, as far as the picture reaches.
+    bounds = _opaque_bounds(glowing)
+    assert bounds[1] < upper
+    assert bounds[2] >= right
+
+
+def test_the_halo_is_made_larger_than_the_bird_and_cached_by_size() -> None:
+    pad = halo_padding(40, 60)
+    assert pad == 60 // 20
+    halo = flamingo._halo_image(40, 60)
+    assert (halo.width(), halo.height()) == (40 + 2 * pad, 60 + 2 * pad)
+    assert flamingo._halo_image(40, 60) is halo
+    assert flamingo._halo_image(41, 60) is not halo
+
+
+def test_the_halo_padding_follows_the_longer_side() -> None:
+    assert halo_padding(400, 100) == 20
+    assert halo_padding(100, 400) == 20

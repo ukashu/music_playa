@@ -2,6 +2,7 @@ import pytest
 from conftest import FakeVisualizer
 from PySide6.QtWidgets import QWidget
 
+from music_playa_gui.cover_style import COVER_DISC, COVER_FILL, COVER_STYLES
 from music_playa_gui.i18n import translator
 from music_playa_gui.widgets.settings_panel import PANEL_WIDTH, SLIDE_MS, SettingsPanel
 from music_playa_gui.widgets.spectrum import SpectrumWidget
@@ -89,3 +90,65 @@ def test_unknown_language_in_the_box_is_ignored(panel: SettingsPanel) -> None:
     panel.language_selected.connect(chosen.append)
     panel._on_language_chosen(-1)
     assert chosen == []
+
+
+def test_cover_box_lists_the_styles_and_starts_on_fill(panel: SettingsPanel) -> None:
+    assert [panel.cover_box.itemData(i) for i in range(panel.cover_box.count())] == list(COVER_STYLES)
+    assert panel.cover_box.currentData() == COVER_FILL
+    assert panel._cover_heading.text() == "Okładka"
+    assert [panel.cover_box.itemText(i) for i in range(panel.cover_box.count())] == ["Tło", "Płyta"]
+
+
+def test_cover_box_starts_on_the_given_style() -> None:
+    widget = QWidget()
+    panel = SettingsPanel(SpectrumWidget(FakeVisualizer()), widget, COVER_DISC)
+    assert panel.cover_box.currentData() == COVER_DISC
+
+
+def test_cover_box_with_an_unknown_style_starts_on_the_first() -> None:
+    widget = QWidget()
+    panel = SettingsPanel(SpectrumWidget(FakeVisualizer()), widget, "cube")
+    assert panel.cover_box.currentData() == COVER_FILL
+
+
+def test_cover_style_choice_emits(panel: SettingsPanel) -> None:
+    chosen = []
+    panel.cover_style_selected.connect(chosen.append)
+    panel.cover_box.setCurrentIndex(panel.cover_box.findData(COVER_DISC))
+    assert chosen == [COVER_DISC]
+
+
+def test_cover_box_is_translated(panel: SettingsPanel) -> None:
+    translator.set_language("en")
+    assert panel._cover_heading.text() == "Cover"
+    assert [panel.cover_box.itemText(i) for i in range(panel.cover_box.count())] == ["Background", "Disc"]
+    assert panel.cover_box.currentData() == COVER_FILL
+
+
+def test_unknown_cover_style_in_the_box_is_ignored(panel: SettingsPanel) -> None:
+    chosen = []
+    panel.cover_style_selected.connect(chosen.append)
+    panel._on_cover_style_chosen(-1)
+    assert chosen == []
+
+
+def test_bass_glow_box_starts_on_the_state_of_the_spectrum(parent) -> None:
+    assert parent.panel.bass_glow_box.isChecked() is False
+    glowing = SettingsPanel(SpectrumWidget(FakeVisualizer(), bass_glow=True), parent)
+    assert glowing.bass_glow_box.isChecked() is True
+
+
+def test_toggling_the_bass_glow_emits(panel: SettingsPanel) -> None:
+    seen: list[bool] = []
+    panel.bass_glow_toggled.connect(seen.append)
+    panel.bass_glow_box.setChecked(True)
+    panel.bass_glow_box.setChecked(False)
+    assert seen == [True, False]
+
+
+def test_effects_section_is_translated(panel: SettingsPanel) -> None:
+    assert panel._effects_heading.text() == "Efekty"
+    assert panel.bass_glow_box.text() == "Podświetlenie na basach"
+    translator.set_language("en")
+    assert panel._effects_heading.text() == "Effects"
+    assert panel.bass_glow_box.text() == "Highlight on bass"

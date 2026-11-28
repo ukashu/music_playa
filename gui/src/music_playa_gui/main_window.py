@@ -40,6 +40,9 @@ class MainWindow(QMainWindow):
             self._settings.spectrum_columns(),
             self._settings.spectrum_segments(),
             self._settings.spectrum_mode(),
+            self._settings.cover_style(),
+            self._settings.spectrum_background(),
+            self._settings.bass_glow(),
         )
         self._player_bar = PlayerBar()
 
@@ -77,6 +80,12 @@ class MainWindow(QMainWindow):
         panel.spectrum_settings.columns.valueChanged.connect(self._settings.set_spectrum_columns)
         panel.spectrum_settings.segments.valueChanged.connect(self._settings.set_spectrum_segments)
         panel.spectrum_settings.mode_changed.connect(self._settings.set_spectrum_mode)
+        panel.spectrum_settings.background_changed.connect(self._settings.set_spectrum_background)
+        panel.cover_style_selected.connect(self._settings.set_cover_style)
+        panel.bass_glow_toggled.connect(self._settings.set_bass_glow)
+        panel.bass_glow_toggled.connect(self._now_playing.set_bass_glow)
+        self._now_playing.bass_changed.connect(self._sidebar.set_glow)
+        self._now_playing.bass_changed.connect(self._player_bar.set_glow)
 
         self._player_bar.set_mode(self.player.mode)
         self._player_bar.set_repeat(self.player.repeat)
@@ -99,7 +108,9 @@ class MainWindow(QMainWindow):
         self._sync_playing()
 
     def _sync_playing(self) -> None:
-        self._player_bar.set_playing(self.player.state is PlaybackState.PLAYING)
+        playing = self.player.state is PlaybackState.PLAYING
+        self._player_bar.set_playing(playing)
+        self._now_playing.set_playing(playing)
 
     def change_language(self, code: str) -> None:
         translator.set_language(code)

@@ -51,19 +51,54 @@ def _tinted_image() -> QImage:
     return _tinted
 
 
+def _fitted_logo(longest: int) -> QImage:
+    """The tinted logo shrunk so that its longer side is longest pixels (null when impossible)."""
+    image = _tinted_image()
+    if image.isNull() or longest < 1:
+        return QImage()
+    scale = longest / max(image.width(), image.height())
+    width = max(1, round(image.width() * scale))
+    height = max(1, round(image.height() * scale))
+    return scaled_smooth(image, width, height)
+
+
 def scaled_logo(longest: int, ratio: float = 1.0) -> QPixmap:
     """The logo fitted inside a square whose side is longest device pixels.
 
     It is shrunk with scaled_smooth, so its edges stay smooth. The pixmap is marked with
     ratio at the end.
     """
-    image = _tinted_image()
-    if image.isNull() or longest < 1:
+    image = _fitted_logo(longest)
+    if image.isNull():
         return QPixmap()
-    scale = longest / max(image.width(), image.height())
-    width = max(1, round(image.width() * scale))
-    height = max(1, round(image.height() * scale))
-    image = scaled_smooth(image, width, height)
+    pixmap = QPixmap.fromImage(image)
+    pixmap.setDevicePixelRatio(ratio)
+    return pixmap
+
+
+def covered_logo(cover: QImage, longest: int, ratio: float = 1.0) -> QPixmap:
+    """The logo filled with the cover instead of the gradient.
+
+    The cover is scaled to cover the whole logo (the part that does not fit is cropped around
+    the centre) and kept only where the logo is opaque, so the logo works as a mask on the
+    cover. Sized like scaled_logo.
+    """
+    shape = _fitted_logo(longest)
+    if shape.isNull() or cover.isNull():
+        return QPixmap()
+    fill = cover.scaled(
+        shape.width(),
+        shape.height(),
+        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    image = QImage(shape.size(), QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.drawImage((shape.width() - fill.width()) // 2, (shape.height() - fill.height()) // 2, fill)
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
+    painter.drawImage(0, 0, shape)
+    painter.end()
     pixmap = QPixmap.fromImage(image)
     pixmap.setDevicePixelRatio(ratio)
     return pixmap
