@@ -72,7 +72,7 @@ The mock scanner accepts `.wav`, `.ogg`, `.mp3`, and `.flac`. It does not read t
 - Python 3.15 (`requires-python = ">=3.15"`)
 - SoLoud: C library `libsoloud` plus a generated glue file `soloud.py` (no maintained pip package). Not linked by the mock.
 - mutagen: tags and cover art. Not a dependency of the mock.
-- pytest: `[dev]` extra
+- pytest, pytest-cov and mutmut: `[dev]` extra
 
 - numpy: FFT for the visualizer (core dependency)
 - ffmpeg: system binary used to decode tracks for the visualizer. If it is missing, the visualizer stays silent and playback is not affected.
@@ -125,3 +125,25 @@ From the repository root, after `scripts/setup.sh`:
 ```bash
 backend/.venv/bin/pytest
 ```
+
+The tests use fakes instead of real devices: a fake `mpv.MPV` for `AudioEngine`, a fake engine for `MemoryPlayer` and mocked `mutagen`/`ffmpeg` calls, so they need no sound card or audio files. Only `create_app` is exercised with the real engine.
+
+Coverage comes from `pytest-cov` (the `[dev]` extra). Line and branch coverage of the `music_playa` package is configured in `[tool.coverage.*]` in `pyproject.toml`, and the report fails below 95%. It is not enabled by default, so plain `pytest` and the mutation run stay fast:
+
+```bash
+cd backend && .venv/bin/pytest --cov
+cd backend && .venv/bin/pytest --cov --cov-report=html   # report in backend/htmlcov/index.html
+```
+
+The current total is 100% (158 tests).
+
+## Mutation testing
+
+`scripts/mutation_backend.sh` runs [mutmut](https://github.com/boxed/mutmut) (mutatest does not support Python 3.15) on the whole `src/` tree and prints the surviving mutants. The configuration is in `[tool.mutmut]` in `pyproject.toml`; every mutant is stopped by the first failing test (`-x`). Mutants are written to `backend/mutants/`, which is ignored by git.
+
+```bash
+scripts/mutation_backend.sh
+backend/.venv/bin/mutmut show <mutant name>   # from backend/, the diff of one mutant
+```
+
+Of 672 mutants, 662 are killed and 10 survive. All the survivors are equivalent, meaning the change does not alter behaviour: an initial `_index` for an empty queue (`-1`, `+1`, `-2` or "always 0" are all treated as "no track"), `_loaded_track = ""` instead of `None` (it is only compared with `is not`), `<=` instead of `<` where the padding would add zero samples, `gain < 0` instead of `<= 0` (zero gain gives zeros anyway), `astype(None)` instead of `astype(float)` (both are `float64`) and `low - 1` in a `max()` whose other argument is never smaller.

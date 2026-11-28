@@ -85,10 +85,12 @@ MUSIC_DIR=/home/lexxar/Muzyka
 
 `.env` is listed in `.gitignore`. The same variable applies to both the TUI and the GUI, because both call `Library` with the same directory.
 
-Core tests, using the backend `.venv`:
+Core tests, coverage and mutation testing, using the backend `.venv` (details in `backend/README.md`):
 
 ```bash
 backend/.venv/bin/pytest
+cd backend && .venv/bin/pytest --cov
+scripts/mutation_backend.sh
 ```
 
 GUI tests and mutation testing, using the GUI `.venv` (details in `gui/README.md`):
