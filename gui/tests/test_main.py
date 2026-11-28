@@ -28,6 +28,7 @@ def test_env_file_is_read_from_the_working_directory(monkeypatch, tmp_path) -> N
         return make_player(tracks), FakeLibrary(tracks), FakeVisualizer()
 
     shown = []
+    icons = []
     monkeypatch.setattr(entry, "create_app", create_app)
     monkeypatch.setattr(entry.MainWindow, "show", lambda window: shown.append(window.size()))
     real_app = QApplication.instance()
@@ -41,6 +42,9 @@ def test_env_file_is_read_from_the_working_directory(monkeypatch, tmp_path) -> N
         def setStyleSheet(self, sheet: str) -> None:
             real_app.setStyleSheet(sheet)
 
+        def setWindowIcon(self, icon) -> None:
+            icons.append(icon)
+
         def exec(self) -> int:
             return 7
 
@@ -50,4 +54,5 @@ def test_env_file_is_read_from_the_working_directory(monkeypatch, tmp_path) -> N
     real_app.setStyleSheet("")
     assert exit_info.value.code == 7
     assert created == [str(tmp_path)]
+    assert len(icons) == 1 and not icons[0].isNull()
     assert (shown[0].width(), shown[0].height()) == (1100, 700)

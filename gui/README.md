@@ -16,6 +16,8 @@ From this project's virtual environment:
 gui/.venv/bin/python -m music_playa_gui
 ```
 
+`__main__.py` also sets the application icon (`app.setWindowIcon(app_icon())`). `app_icon.py` draws it at startup in 7 sizes (16 to 256 px): the white logo (`assets/logo_white.png`) on a rounded square filled with the synthwave gradient (cyan, violet, pink, from the top left to the bottom right), with transparent corners. On Wayland the dock may ignore the window icon and read it from a `.desktop` file instead.
+
 ## Bridge
 
 `bridge.py` implements `PlaybackListener` and emits Qt signals (`track_changed`, `progress_changed`). It does not add methods that are not in the protocol. `MainWindow` connects those signals to its labels.
