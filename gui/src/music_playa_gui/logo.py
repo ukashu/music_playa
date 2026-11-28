@@ -9,35 +9,23 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QImage, QLinearGradient, QPainter, QPaintEvent, QPixmap
 from PySide6.QtWidgets import QWidget
 
-from music_playa_gui.imaging import scaled_smooth
-from music_playa_gui.theme import CYAN, PINK
+from music_playa_gui.imaging import scaled_smooth, tinted
+from music_playa_gui.theme import SYNTHWAVE_GRADIENT
 
 ASSET = Path(__file__).parent / "assets" / "logo_white.png"
-# Same stops as the spectrum: cyan through violet to pink, from top left to bottom right.
-_GRADIENT = (QColor(CYAN), QColor(138, 79, 255), QColor(PINK))
 
 _tinted: QImage | None = None
 
 
 def _tinted_logo() -> QImage:
-    """The white logo with the gradient painted over it.
-
-    The gradient is painted first and then kept only where the logo is opaque, so the
-    transparent background stays transparent.
-    """
+    """The white logo coloured with the synthwave gradient, from top left to bottom right."""
     source = QImage(str(ASSET))
     if source.isNull():
         return QImage()
-    image = QImage(source.size(), QImage.Format.Format_ARGB32_Premultiplied)
-    image.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(image)
-    gradient = QLinearGradient(0, 0, image.width(), image.height())
-    for index, colour in enumerate(_GRADIENT):
-        gradient.setColorAt(index / (len(_GRADIENT) - 1), colour)
-    painter.fillRect(image.rect(), QBrush(gradient))
-    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
-    painter.drawImage(0, 0, source)
-    painter.end()
+    gradient = QLinearGradient(0, 0, source.width(), source.height())
+    for index, colour in enumerate(SYNTHWAVE_GRADIENT):
+        gradient.setColorAt(index / (len(SYNTHWAVE_GRADIENT) - 1), QColor(colour))
+    image = tinted(source, QBrush(gradient))
     # The source edges are hard (the alpha jumps from 0 to full in one pixel), which shows
     # as steps once the logo is shrunk. A half-size round trip softens them by a pixel or two.
     width, height = image.width(), image.height()
@@ -61,11 +49,6 @@ def _tinted_image() -> QImage:
     if _tinted is None:
         _tinted = _tinted_logo()
     return _tinted
-
-
-def logo_pixmap() -> QPixmap:
-    """The tinted logo at full size. A null pixmap if the asset is missing."""
-    return QPixmap.fromImage(_tinted_image())
 
 
 def scaled_logo(longest: int, ratio: float = 1.0) -> QPixmap:

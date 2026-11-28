@@ -47,8 +47,7 @@ class Translator(QObject):
         self.language_changed.emit()
 
     def tr(self, key: str, **values: str) -> str:
-        text = _TEXTS[key][self._language]
-        return text.format(**values) if values else text
+        return _TEXTS[key][self._language].format(**values)
 
 
 translator = Translator()

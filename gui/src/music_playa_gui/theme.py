@@ -6,8 +6,17 @@ SURFACE_HOVER = "#241757"
 BORDER = "#2E1F6B"
 PINK = "#FF2E97"
 CYAN = "#00E5FF"
+VIOLET = "#8A4FFF"
 TEXT = "#F3EBFF"
 TEXT_MUTED = "#9A8FC4"
+# Cyan through violet to pink, used by the spectrum and the logo.
+SYNTHWAVE_GRADIENT = (CYAN, VIOLET, PINK)
+
+
+def _rgba(colour: str, alpha: int) -> str:
+    """A "#RRGGBB" colour as a stylesheet rgba() with the given alpha (0..255)."""
+    red, green, blue = (int(colour[i : i + 2], 16) for i in (1, 3, 5))
+    return f"rgba({red}, {green}, {blue}, {alpha})"
 
 
 def build_stylesheet() -> str:
@@ -109,7 +118,7 @@ QTableWidget {{
     border: none;
     outline: none;
     gridline-color: transparent;
-    selection-background-color: rgba(255, 46, 151, 60);
+    selection-background-color: {_rgba(PINK, 60)};
     selection-color: {TEXT};
 }}
 QTableWidget::item {{
@@ -117,11 +126,11 @@ QTableWidget::item {{
     border: none;
 }}
 QTableWidget::item:selected {{
-    background-color: rgba(255, 46, 151, 60);
+    background-color: {_rgba(PINK, 60)};
     color: {TEXT};
 }}
 QHeaderView::section {{
-    background-color: rgba(27, 17, 64, 110);
+    background-color: {_rgba(SURFACE, 110)};
     color: {TEXT_MUTED};
     border: none;
     border-bottom: 1px solid {BORDER};
@@ -165,7 +174,7 @@ QSpinBox:focus {{
 }}
 
 QPushButton#gearButton {{
-    background-color: rgba(18, 11, 46, 150);
+    background-color: {_rgba(BACKGROUND, 150)};
     color: {TEXT};
     border-radius: 20px;
     font-size: 28px;
@@ -206,7 +215,7 @@ QComboBox:focus, QComboBox:on {{
 QComboBox QAbstractItemView {{
     background-color: {SURFACE};
     border: 1px solid {BORDER};
-    selection-background-color: rgba(255, 46, 151, 80);
+    selection-background-color: {_rgba(PINK, 80)};
     selection-color: {TEXT};
     outline: none;
 }}

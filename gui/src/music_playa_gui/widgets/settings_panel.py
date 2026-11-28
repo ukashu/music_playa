@@ -53,10 +53,6 @@ class SettingsPanel(QWidget):
         self.retranslate()
         self.hide()
 
-    @property
-    def is_open(self) -> bool:
-        return self._open
-
     def toggle(self) -> None:
         if self._open:
             self.close_panel()

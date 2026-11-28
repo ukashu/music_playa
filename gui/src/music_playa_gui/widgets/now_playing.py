@@ -1,5 +1,5 @@
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPixmap, QResizeEvent
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QImage, QLinearGradient, QPainter, QPixmap, QResizeEvent
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 
 from music_playa.interfaces import Visualizer
@@ -32,10 +32,10 @@ class NowPlayingView(QWidget):
     ) -> None:
         super().__init__()
         self.setObjectName("nowPlaying")
-        self._cover: QPixmap | None = None
+        self._cover: QImage | None = None
         self._scaled: QPixmap | None = None
         self._logo: QPixmap | None = None
-        self._logo_ratio = 0.0
+        self._ratio = 0.0
 
         self._spectrum = SpectrumWidget(visualizer, columns, segments)
 
@@ -55,10 +55,6 @@ class NowPlayingView(QWidget):
         self.retranslate()
 
     @property
-    def spectrum(self) -> SpectrumWidget:
-        return self._spectrum
-
-    @property
     def settings_panel(self) -> SettingsPanel:
         return self._settings_panel
 
@@ -70,8 +66,8 @@ class NowPlayingView(QWidget):
         self._gear.setToolTip(tr("settings.tooltip"))
 
     def set_cover(self, data: bytes | None) -> None:
-        pixmap = QPixmap()
-        self._cover = pixmap if data is not None and pixmap.loadFromData(data) else None
+        image = QImage()
+        self._cover = image if data is not None and image.loadFromData(data) else None
         self._rescale()
         self.update()
 
@@ -86,30 +82,33 @@ class NowPlayingView(QWidget):
         """Cache the scaled artwork; the spectrum repaints this ~30 times a second.
 
         A cover is scaled to fill the view. Without a cover the logo is
-        scaled to fit inside it instead, so it stays whole.
+        scaled to fit inside it instead, so it stays whole. Both are prepared in
+        device pixels, so they are not stretched on scaled screens.
         """
         self._scaled = None
         self._logo = None
         ratio = self.devicePixelRatioF()
-        self._logo_ratio = ratio
+        self._ratio = ratio
         if self.width() == 0 or self.height() == 0:
             return
         if self._cover is not None:
-            self._scaled = self._cover.scaled(
-                self.size(),
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
+            self._scaled = QPixmap.fromImage(
+                self._cover.scaled(
+                    round(self.width() * ratio),
+                    round(self.height() * ratio),
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
             )
+            self._scaled.setDevicePixelRatio(ratio)
             return
-        # Prepared in device pixels, so it is not stretched on scaled screens.
         side = round(min(self.width(), self.height()) * LOGO_FILL)
-        if side > 0:
-            self._logo = scaled_logo(round(side * ratio), ratio)
+        self._logo = scaled_logo(round(side * ratio), ratio)
 
     def paintEvent(self, event) -> None:
         # The device pixel ratio can change after the first resize (the screen reports its
         # scale a moment later), so the cached artwork is checked here, not only at resize.
-        if self.devicePixelRatioF() != self._logo_ratio:
+        if self.devicePixelRatioF() != self._ratio:
             self._rescale()
         painter = QPainter(self)
         if self._scaled is None:
@@ -119,17 +118,16 @@ class NowPlayingView(QWidget):
             painter.fillRect(self.rect(), gradient)
             if self._logo is not None:
                 painter.setOpacity(LOGO_OPACITY)
-                logical = self._logo.deviceIndependentSize()
-                painter.drawPixmap(
-                    round((self.width() - logical.width()) / 2),
-                    round((self.height() - logical.height()) / 2),
-                    self._logo,
-                )
+                self._draw_centred(painter, self._logo)
         else:
-            offset = QPoint(
-                (self.width() - self._scaled.width()) // 2,
-                (self.height() - self._scaled.height()) // 2,
-            )
-            painter.drawPixmap(offset, self._scaled)
+            self._draw_centred(painter, self._scaled)
             painter.fillRect(self.rect(), _DIM)
         painter.end()
+
+    def _draw_centred(self, painter: QPainter, pixmap: QPixmap) -> None:
+        logical = pixmap.deviceIndependentSize()
+        painter.drawPixmap(
+            round((self.width() - logical.width()) / 2),
+            round((self.height() - logical.height()) / 2),
+            pixmap,
+        )

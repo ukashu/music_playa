@@ -13,6 +13,7 @@ from PySide6.QtCore import QPointF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPen, QPixmap
 
 from music_playa_gui.theme import PINK
+from music_playa_gui.utils import clamp
 
 # Grid
 GRID_RADIAL_SPACING = 64.0  # distance between radial lines on the bottom edge
@@ -30,16 +31,11 @@ def _blank(size: QSize, ratio: float) -> QPixmap:
     return pixmap
 
 
-def grid_pixmap(
-    size: QSize,
-    ratio: float = 1.0,
-    vanishing_x: float | None = None,
-    horizon: float = 1.0,
-) -> QPixmap:
+def grid_pixmap(size: QSize, ratio: float, vanishing_x: float, horizon: float) -> QPixmap:
     """A perspective grid; its radial lines point at (vanishing_x, -horizon).
 
     The vanishing point is given in pixmap coordinates: vanishing_x along the width
-    (the middle by default) and horizon as the distance above the top edge. Lines
+    and horizon as the distance above the top edge (at least 1). Lines
     are clipped to the pixmap, so a distant vanishing point gives almost vertical
     lines that still aim at it.
     """
@@ -49,7 +45,6 @@ def grid_pixmap(
 
     width = float(size.width())
     height = float(size.height())
-    centre = width / 2 if vanishing_x is None else vanishing_x
     horizon = max(horizon, 1.0)
     depth = horizon + height  # distance from the vanishing point to the bottom edge
 
@@ -73,14 +68,14 @@ def grid_pixmap(
     for index in range(-count, count + 1):
         offset = index * GRID_RADIAL_SPACING
         painter.drawLine(
-            QPointF(centre + offset * shrink, 0.0), QPointF(centre + offset, height)
+            QPointF(vanishing_x + offset * shrink, 0.0), QPointF(vanishing_x + offset, height)
         )
 
     # Horizontal lines are evenly spaced in depth, so they bunch up toward the horizon.
     far = depth / horizon
     for step in range(1, GRID_HORIZONTAL_LINES + 1):
         z = 1.0 + (far - 1.0) * step / (GRID_HORIZONTAL_LINES + 1)
-        y = min(max(depth / z - horizon, 0.5), height - 0.5)
+        y = clamp(depth / z - horizon, 0.5, height - 0.5)
         painter.drawLine(QPointF(0, y), QPointF(width, y))
     painter.end()
     return pixmap

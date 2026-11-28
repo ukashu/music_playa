@@ -11,9 +11,9 @@ HOLD_TICKS = 60  # pause at the start of each cycle, about 1.8 s
 class MarqueeLabel(QWidget):
     """One line of text that scrolls horizontally when it does not fit the width."""
 
-    def __init__(self, text: str = "") -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self._text = text
+        self._text = ""
         self._offset = 0.0
         self._hold = HOLD_TICKS
         self._timer = QTimer(self)
@@ -31,11 +31,11 @@ class MarqueeLabel(QWidget):
     def minimumSizeHint(self) -> QSize:
         return QSize(0, self.fontMetrics().height() + 2)
 
-    def text_width(self) -> int:
+    def _text_width(self) -> int:
         return self.fontMetrics().horizontalAdvance(self._text)
 
     def _overflows(self) -> bool:
-        return self.text_width() > self.width()
+        return self._text_width() > self.width()
 
     def _reset(self) -> None:
         self._offset = 0.0
@@ -52,7 +52,7 @@ class MarqueeLabel(QWidget):
             self._hold -= 1
             return
         self._offset += SPEED_PX
-        if self._offset >= self.text_width() + GAP_PX:
+        if self._offset >= self._text_width() + GAP_PX:
             self._offset = 0.0
             self._hold = HOLD_TICKS
         self.update()
@@ -71,11 +71,11 @@ class MarqueeLabel(QWidget):
         painter.setPen(self.palette().color(QPalette.ColorRole.WindowText))
         painter.setFont(self.font())
         flags = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        width = self.text_width() + 1
+        width = self._text_width() + 1
         if not self._overflows():
             painter.drawText(QRectF(0, 0, self.width(), self.height()), flags, self._text)
         else:
-            cycle = self.text_width() + GAP_PX
+            cycle = self._text_width() + GAP_PX
             # Two copies one cycle apart make the loop seamless.
             for start in (-self._offset, cycle - self._offset):
                 painter.drawText(QRectF(start, 0, width, self.height()), flags, self._text)

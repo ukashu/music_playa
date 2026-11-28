@@ -32,7 +32,9 @@ music_playa/
 ├── scripts/
 │   ├── setup.sh
 │   ├── run_tui.sh
-│   └── run_gui.sh
+│   ├── run_gui.sh
+│   ├── mutation_gui.sh
+│   └── bake_flamingo.py
 ├── backend/          # core library
 ├── tui/              # Textual app
 └── gui/              # PySide6 app
@@ -56,7 +58,7 @@ python3.15 -m venv tui/.venv
 tui/.venv/bin/pip install -e ./backend -e ./tui
 
 python3.15 -m venv gui/.venv
-gui/.venv/bin/pip install -e ./backend -e ./gui
+gui/.venv/bin/pip install -e ./backend -e "./gui[dev]"
 ```
 
 ## Run
@@ -85,4 +87,11 @@ Core tests, using the backend `.venv`:
 
 ```bash
 backend/.venv/bin/pytest
+```
+
+GUI tests and mutation testing, using the GUI `.venv` (details in `gui/README.md`):
+
+```bash
+cd gui && .venv/bin/pytest
+scripts/mutation_gui.sh
 ```

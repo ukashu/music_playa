@@ -16,4 +16,4 @@ python3.15 -m venv tui/.venv
 tui/.venv/bin/pip install -e ./backend -e ./tui
 
 python3.15 -m venv gui/.venv
-gui/.venv/bin/pip install -e ./backend -e ./gui
+gui/.venv/bin/pip install -e ./backend -e "./gui[dev]"

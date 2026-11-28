@@ -31,7 +31,7 @@ def make_icon(kind: Icon, color: str) -> QIcon:
     return QIcon(pixmap)
 
 
-def _stroke(color: QColor, width: float = 2.0) -> QPen:
+def stroke_pen(color: QColor, width: float = 2.0) -> QPen:
     return QPen(color, width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
 
 
@@ -63,19 +63,19 @@ def _filled_triangle(painter: QPainter, points: list[tuple[float, float]], color
 
 
 def _previous(painter: QPainter, color: QColor) -> None:
-    painter.setPen(_stroke(color))
+    painter.setPen(stroke_pen(color))
     painter.drawLine(QPointF(6, 6), QPointF(6, 18))
     _filled_triangle(painter, [(18, 6), (18, 18), (9, 12)], color)
 
 
 def _next(painter: QPainter, color: QColor) -> None:
-    painter.setPen(_stroke(color))
+    painter.setPen(stroke_pen(color))
     painter.drawLine(QPointF(18, 6), QPointF(18, 18))
     _filled_triangle(painter, [(6, 6), (6, 18), (15, 12)], color)
 
 
 def _shuffle(painter: QPainter, color: QColor) -> None:
-    painter.setPen(_stroke(color))
+    painter.setPen(stroke_pen(color))
     painter.drawPolyline(QPolygonF([QPointF(4, 8), QPointF(9, 8), QPointF(15, 16), QPointF(19, 16)]))
     painter.drawPolyline(QPolygonF([QPointF(4, 16), QPointF(9, 16), QPointF(15, 8), QPointF(19, 8)]))
     _arrowhead(painter, QPointF(20, 16), 1.0, 0.0, color)
@@ -84,7 +84,7 @@ def _shuffle(painter: QPainter, color: QColor) -> None:
 
 def _loop(painter: QPainter, color: QColor) -> None:
     # Rounded rectangle with arrowheads on opposite sides, circulating clockwise.
-    painter.setPen(_stroke(color))
+    painter.setPen(stroke_pen(color))
     painter.drawRoundedRect(QRectF(4.5, 6.5, 15, 11), 3.5, 3.5)
     _arrowhead(painter, QPointF(19.5, 14), 0.0, 1.0, color)
     _arrowhead(painter, QPointF(4.5, 10), 0.0, -1.0, color)

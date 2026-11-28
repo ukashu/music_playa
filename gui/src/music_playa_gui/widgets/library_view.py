@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 
 from music_playa.models import Track
 from music_playa_gui.i18n import tr, translator
+from music_playa_gui.utils import format_time
 
 ROW_HEIGHT = 56
 INDEX_COLUMN, TITLE_COLUMN, DURATION_COLUMN = range(3)
@@ -52,7 +53,7 @@ class LibraryView(QTableWidget):
             values = (
                 str(row + 1),
                 f"{track.title}\n{track.artist}",
-                _format_duration(track.duration),
+                format_time(track.duration),
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
@@ -65,11 +66,7 @@ class LibraryView(QTableWidget):
             self.clearSelection()
             return
         row = self._tracks.index(track)
-        if self.currentRow() != row:
+        # clearSelection keeps the current row, so the selection itself is compared.
+        if [index.row() for index in self.selectionModel().selectedRows()] != [row]:
             self.selectRow(row)
             self.scrollToItem(self.item(row, TITLE_COLUMN))
-
-
-def _format_duration(duration: float) -> str:
-    minutes, seconds = divmod(max(0, int(duration)), 60)
-    return f"{minutes}:{seconds:02d}"

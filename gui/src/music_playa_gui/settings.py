@@ -3,6 +3,7 @@
 from PySide6.QtCore import QSettings
 
 from music_playa_gui.i18n import DEFAULT_LANGUAGE, LANGUAGES
+from music_playa_gui.utils import clamp
 from music_playa_gui.widgets.spectrum import (
     DEFAULT_COLUMNS,
     DEFAULT_SEGMENTS,
@@ -18,7 +19,7 @@ def _bounded_int(value: object, default: int, low: int, high: int) -> int:
         number = int(value)  # type: ignore[call-overload]
     except (TypeError, ValueError):
         return default
-    return min(max(number, low), high)
+    return clamp(number, low, high)
 
 
 class AppSettings:
@@ -26,21 +27,21 @@ class AppSettings:
         self._store = QSettings("music_playa", "music_playa_gui")
 
     def language(self) -> str:
-        value = str(self._store.value("language", DEFAULT_LANGUAGE))
+        value = str(self._store.value("language"))
         return value if value in LANGUAGES else DEFAULT_LANGUAGE
 
     def set_language(self, code: str) -> None:
         self._store.setValue("language", code)
 
     def spectrum_columns(self) -> int:
-        value = self._store.value("spectrum/columns", DEFAULT_COLUMNS)
+        value = self._store.value("spectrum/columns")
         return _bounded_int(value, DEFAULT_COLUMNS, MIN_COLUMNS, MAX_COLUMNS)
 
     def set_spectrum_columns(self, columns: int) -> None:
         self._store.setValue("spectrum/columns", columns)
 
     def spectrum_segments(self) -> int:
-        value = self._store.value("spectrum/segments", DEFAULT_SEGMENTS)
+        value = self._store.value("spectrum/segments")
         return _bounded_int(value, DEFAULT_SEGMENTS, MIN_SEGMENTS, MAX_SEGMENTS)
 
     def set_spectrum_segments(self, segments: int) -> None:

@@ -4,6 +4,8 @@ from PySide6.QtWidgets import QFormLayout, QLabel, QSpinBox, QWidget
 
 from music_playa.interfaces import Visualizer
 from music_playa_gui.i18n import tr, translator
+from music_playa_gui.theme import SYNTHWAVE_GRADIENT
+from music_playa_gui.utils import clamp
 
 DEFAULT_COLUMNS = 32
 DEFAULT_SEGMENTS = 8
@@ -13,12 +15,8 @@ MIN_SEGMENTS = 2
 MAX_SEGMENTS = 32
 FRAME_MS = 33
 
-# Colour stops, bottom to top: cyan, violet, pink.
-_GRADIENT = [
-    (0, 229, 255),
-    (138, 79, 255),
-    (255, 46, 151),
-]
+# Colour stops as (red, green, blue), bottom to top.
+_GRADIENT = [QColor(colour).getRgb()[:3] for colour in SYNTHWAVE_GRADIENT]
 # The widget has no background of its own: it is drawn over the cover art, so
 # lit segments are translucent and unlit ones are not drawn at all.
 _LIT_ALPHA = 230
@@ -26,7 +24,7 @@ _LIT_ALPHA = 230
 
 def _gradient_color(position: float) -> QColor:
     """Colour for a height in 0..1, interpolated between the gradient stops."""
-    scaled = min(max(position, 0.0), 1.0) * (len(_GRADIENT) - 1)
+    scaled = clamp(position, 0.0, 1.0) * (len(_GRADIENT) - 1)
     index = min(int(scaled), len(_GRADIENT) - 2)
     fraction = scaled - index
     start, end = _GRADIENT[index], _GRADIENT[index + 1]
@@ -64,8 +62,8 @@ class SpectrumWidget(QWidget):
     ) -> None:
         super().__init__()
         self._visualizer = visualizer
-        self._columns = min(max(columns, MIN_COLUMNS), MAX_COLUMNS)
-        self._segments = min(max(segments, MIN_SEGMENTS), MAX_SEGMENTS)
+        self._columns = clamp(columns, MIN_COLUMNS, MAX_COLUMNS)
+        self._segments = clamp(segments, MIN_SEGMENTS, MAX_SEGMENTS)
         self._colors = segment_colors(self._segments)
         self._levels = [0.0] * self._columns
         self.setMinimumHeight(160)
@@ -83,12 +81,12 @@ class SpectrumWidget(QWidget):
         return self._segments
 
     def set_columns(self, columns: int) -> None:
-        self._columns = min(max(columns, MIN_COLUMNS), MAX_COLUMNS)
+        self._columns = clamp(columns, MIN_COLUMNS, MAX_COLUMNS)
         self._levels = column_levels(self._visualizer.bands(), self._columns)
         self.update()
 
     def set_segments(self, segments: int) -> None:
-        self._segments = min(max(segments, MIN_SEGMENTS), MAX_SEGMENTS)
+        self._segments = clamp(segments, MIN_SEGMENTS, MAX_SEGMENTS)
         self._colors = segment_colors(self._segments)
         self.update()
 
@@ -104,7 +102,7 @@ class SpectrumWidget(QWidget):
         segment_height = self.height() / segments
         gap = min(4.0, column_width * 0.25, segment_height * 0.25)
         for column, level in enumerate(self._levels):
-            lit = round(min(max(level, 0.0), 1.0) * segments)
+            lit = round(clamp(level, 0.0, 1.0) * segments)
             for segment in range(lit):
                 color = QColor(self._colors[segment])
                 color.setAlpha(_LIT_ALPHA)

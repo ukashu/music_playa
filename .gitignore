@@ -4,5 +4,8 @@ __pycache__/
 .env
 .pytest_cache/
 *.pyc
+mutants/
 
 *.mp3
+htmlcov/
+.coverage

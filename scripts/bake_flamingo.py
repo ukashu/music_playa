@@ -19,6 +19,9 @@ from pathlib import Path
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QImage, QPainter
 
+from music_playa_gui.imaging import scaled_smooth
+from music_playa_gui.utils import clamp
+
 ASSETS = Path(__file__).resolve().parent.parent / "gui" / "src" / "music_playa_gui" / "assets"
 SOURCE = ASSETS / "flamingo.jpg"
 TARGET = ASSETS / "flamingo.png"
@@ -58,13 +61,6 @@ def content_bounds(gray: QImage) -> QRect:
     return QRect(left, top, right - left + 1, bottom - top + 1)
 
 
-def shrink(image: QImage, width: int, height: int) -> QImage:
-    """Resize in halving steps first: one smooth step from a big size would skip pixels."""
-    while image.width() > 2 * width and image.height() > 2 * height:
-        image = image.scaled(image.width() // 2, image.height() // 2, IGNORE, SMOOTH)
-    return image.scaled(width, height, IGNORE, SMOOTH)
-
-
 def white_with_alpha(alpha: bytes, width: int, height: int) -> QImage:
     """A white image whose opacity is taken from alpha, one byte per pixel."""
     count = width * height
@@ -84,11 +80,11 @@ def main() -> None:
     bounds = content_bounds(source.convertToFormat(QImage.Format.Format_Grayscale8))
     cropped = source.copy(bounds).flipped(Qt.Orientation.Horizontal)  # it faces left; flip it
     width = round(HEIGHT * cropped.width() / cropped.height())
-    scaled = shrink(cropped, width, HEIGHT)
+    scaled = scaled_smooth(cropped, width, HEIGHT)
 
     gray = scaled.convertToFormat(QImage.Format.Format_Grayscale8)
     table = bytes(
-        round(max(0.0, min(1.0, (level - BACKGROUND_LEVEL) / (LINE_LEVEL - BACKGROUND_LEVEL))) * 255)
+        round(clamp((level - BACKGROUND_LEVEL) / (LINE_LEVEL - BACKGROUND_LEVEL), 0.0, 1.0) * 255)
         for level in range(256)
     )
     lines = white_with_alpha(gray_bytes(gray).translate(table), width, HEIGHT)

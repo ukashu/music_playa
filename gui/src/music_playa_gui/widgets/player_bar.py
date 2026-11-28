@@ -3,11 +3,11 @@ import math
 from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
+    QImage,
     QMouseEvent,
     QMoveEvent,
     QPainter,
     QPaintEvent,
-    QPen,
     QPixmap,
     QPolygonF,
     QResizeEvent,
@@ -27,8 +27,9 @@ from music_playa.models import PlaybackMode, RepeatMode, Track
 from music_playa_gui.i18n import tr, translator
 from music_playa_gui.logo import scaled_logo
 from music_playa_gui.theme import CYAN, TEXT, TEXT_MUTED
+from music_playa_gui.utils import clamp, format_time
 from music_playa_gui.widgets.backdrop import grid_pixmap
-from music_playa_gui.widgets.icons import ICON_PX, Icon, make_icon
+from music_playa_gui.widgets.icons import ICON_PX, Icon, make_icon, stroke_pen
 from music_playa_gui.widgets.marquee_label import MarqueeLabel
 
 PROGRESS_STEPS = 1000
@@ -53,10 +54,6 @@ _REPEAT_LABEL_KEYS = {
     RepeatMode.ALL: "repeat.all",
     RepeatMode.ONE: "repeat.one",
 }
-
-def format_time(seconds: float) -> str:
-    minutes, secs = divmod(max(0, int(seconds)), 60)
-    return f"{minutes}:{secs:02d}"
 
 
 class ClickSlider(QSlider):
@@ -141,9 +138,7 @@ class SpeakerIcon(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         color = QColor(TEXT_MUTED if self._muted else TEXT)
-        painter.setPen(
-            QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        )
+        painter.setPen(stroke_pen(color, 1.8))
         painter.setBrush(color)
         painter.drawPolygon(
             QPolygonF(
@@ -188,7 +183,6 @@ class PlayerBar(QWidget):
         self._duration = 0.0
         self._target_position = 0.0
         self._shown_position = 0.0
-        self._playing = False
         self._smooth_timer = QTimer(self)
         self._smooth_timer.setInterval(SMOOTH_TICK_MS)
         self._smooth_timer.timeout.connect(self._ease_progress)
@@ -197,7 +191,8 @@ class PlayerBar(QWidget):
         self._repeat_mode = RepeatMode.OFF
         self._grid: QPixmap | None = None
         self._grid_key: tuple | None = None
-        self._thumb_logo_ratio: float | None = None  # set while the thumbnail shows the logo
+        self._cover: QImage | None = None  # the thumbnail shows the logo when None
+        self._thumb_ratio = 0.0
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 8, 16, 8)
@@ -241,18 +236,14 @@ class PlayerBar(QWidget):
         # child widgets (transparent, apart from hover states) are drawn above.
         super().paintEvent(event)
         # The device pixel ratio can change after the first resize, so the pictures made for
-        # it are checked here too: the grid, and the logo when it is the thumbnail.
+        # it are checked here too: the grid and the thumbnail.
         self._rebuild_grid(update=False)
-        if self._thumb_logo_ratio is not None and self._thumb_logo_ratio != self.devicePixelRatioF():
-            self._show_logo_thumb()
+        if self._thumb_ratio != self.devicePixelRatioF():
+            self._show_thumb()
         if self._grid is not None:
             painter = QPainter(self)
             painter.drawPixmap(0, 1, self._grid)
             painter.end()
-
-    @property
-    def playing(self) -> bool:
-        return self._playing
 
     def _build_info(self) -> QWidget:
         self._thumb = QLabel()
@@ -260,7 +251,7 @@ class PlayerBar(QWidget):
         self._thumb.setFixedSize(THUMB_SIZE, THUMB_SIZE)
         self._title = MarqueeLabel()
         self._title.setObjectName("trackTitle")
-        self._artist = MarqueeLabel("")
+        self._artist = MarqueeLabel()
         self._artist.setObjectName("trackArtist")
 
         texts = QVBoxLayout()
@@ -284,24 +275,13 @@ class PlayerBar(QWidget):
         return container
 
     def _build_center(self) -> QVBoxLayout:
-        self._mode = QPushButton()
-        self._mode.setObjectName("modeButton")
-        self._mode.setIconSize(QSize(ICON_PX, ICON_PX))
-        self._mode.setFixedSize(TRANSPORT_SIZE, TRANSPORT_SIZE)
-        self._mode.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._mode.clicked.connect(self.mode_clicked)
-        self.set_mode(PlaybackMode.IN_ORDER)
-
-        self._repeat = QPushButton()
-        self._repeat.setObjectName("modeButton")
-        self._repeat.setIconSize(QSize(ICON_PX, ICON_PX))
-        self._repeat.setFixedSize(TRANSPORT_SIZE, TRANSPORT_SIZE)
-        self._repeat.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._repeat.clicked.connect(self.repeat_clicked)
-        self.set_repeat(RepeatMode.OFF)
-
-        self._previous = self._transport_button(Icon.PREVIOUS, self.previous_clicked)
-        self._next = self._transport_button(Icon.NEXT, self.next_clicked)
+        # The mode and repeat icons and tooltips are set by retranslate.
+        self._mode = self._icon_button("modeButton", self.mode_clicked)
+        self._repeat = self._icon_button("modeButton", self.repeat_clicked)
+        self._previous = self._icon_button("transportButton", self.previous_clicked)
+        self._previous.setIcon(make_icon(Icon.PREVIOUS, TEXT_MUTED))
+        self._next = self._icon_button("transportButton", self.next_clicked)
+        self._next.setIcon(make_icon(Icon.NEXT, TEXT_MUTED))
         self._toggle = QPushButton("▶")
         self._toggle.setObjectName("playButton")
         self._toggle.setFixedSize(40, 40)
@@ -365,53 +345,60 @@ class PlayerBar(QWidget):
         return container
 
     @staticmethod
-    def _transport_button(icon: Icon, signal: Signal) -> QPushButton:
+    def _icon_button(object_name: str, signal: Signal) -> QPushButton:
         button = QPushButton()
-        button.setObjectName("transportButton")
-        button.setIcon(make_icon(icon, TEXT_MUTED))
+        button.setObjectName(object_name)
         button.setIconSize(QSize(ICON_PX, ICON_PX))
         button.setFixedSize(TRANSPORT_SIZE, TRANSPORT_SIZE)
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.clicked.connect(signal)
         return button
 
+    @staticmethod
+    def _show_toggle(button: QPushButton, icon: Icon, active: bool, tooltip: str) -> None:
+        # The glyph is the same in both states; only the colour shows whether it is on.
+        button.setIcon(make_icon(icon, CYAN if active else TEXT_MUTED))
+        button.setToolTip(tooltip)
+
     def _on_progress_moved(self, value: int) -> None:
         self._elapsed.setText(format_time(self._duration * value / PROGRESS_STEPS))
 
     def _on_progress_released(self) -> None:
-        if self._duration > 0:
-            self.seek_requested.emit(self._duration * self._progress.value() / PROGRESS_STEPS)
+        if self._duration <= 0:
+            return
+        position = self._duration * self._progress.value() / PROGRESS_STEPS
+        # Shown at once, so the slider neither jumps back nor eases toward the old position.
+        self._target_position = self._shown_position = position
+        self._smooth_timer.stop()
+        self._apply_shown_position()
+        self.seek_requested.emit(position)
 
     def set_playing(self, playing: bool) -> None:
-        self._playing = playing
         self._toggle.setText("⏸" if playing else "▶")
 
     def retranslate(self) -> None:
         self._show_track_text()
-        self._mode.setToolTip(tr("player.mode", mode=tr(f"mode.{self._playback_mode.value}")))
-        self._repeat.setToolTip(
-            tr("player.repeat", state=tr(_REPEAT_LABEL_KEYS[self._repeat_mode]))
-        )
+        self.set_mode(self._playback_mode)
+        self.set_repeat(self._repeat_mode)
         self._update_speaker()
 
     def set_mode(self, mode: PlaybackMode) -> None:
         self._playback_mode = mode
-        active = mode is not PlaybackMode.IN_ORDER
-        # Same shuffle glyph in both states; only the colour shows whether it is on.
-        self._mode.setIcon(make_icon(Icon.SHUFFLE, CYAN if active else TEXT_MUTED))
-        self._mode.setToolTip(tr("player.mode", mode=tr(f"mode.{mode.value}")))
-        self._mode.setProperty("active", active)
-        self._mode.style().unpolish(self._mode)
-        self._mode.style().polish(self._mode)
+        self._show_toggle(
+            self._mode,
+            Icon.SHUFFLE,
+            mode is not PlaybackMode.IN_ORDER,
+            tr("player.mode", mode=tr(f"mode.{mode.value}")),
+        )
 
     def set_repeat(self, repeat: RepeatMode) -> None:
         self._repeat_mode = repeat
-        active = repeat is not RepeatMode.OFF
-        self._repeat.setIcon(make_icon(_REPEAT_ICONS[repeat], CYAN if active else TEXT_MUTED))
-        self._repeat.setToolTip(tr("player.repeat", state=tr(_REPEAT_LABEL_KEYS[repeat])))
-        self._repeat.setProperty("active", active)
-        self._repeat.style().unpolish(self._repeat)
-        self._repeat.style().polish(self._repeat)
+        self._show_toggle(
+            self._repeat,
+            _REPEAT_ICONS[repeat],
+            repeat is not RepeatMode.OFF,
+            tr("player.repeat", state=tr(_REPEAT_LABEL_KEYS[repeat])),
+        )
 
     def set_volume(self, volume: float) -> None:
         self._volume.blockSignals(True)
@@ -441,28 +428,28 @@ class PlayerBar(QWidget):
     def set_track(self, track: Track | None, cover: bytes | None) -> None:
         self._track = track
         self._show_track_text()
-        pixmap = QPixmap()
-        self._thumb.clear()
-        self._thumb_logo_ratio = None
-        if cover is not None and pixmap.loadFromData(cover):
-            if not pixmap.isNull():
-                self._thumb.setPixmap(
-                    pixmap.scaled(
-                        self._thumb.size(),
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                )
-            return
-        self._show_logo_thumb()
+        image = QImage()
+        self._cover = image if cover is not None and image.loadFromData(cover) else None
+        self._show_thumb()
 
-    def _show_logo_thumb(self) -> None:
-        """No cover: the logo as the thumbnail, made in device pixels so it is not stretched."""
-        side = max(self._thumb.width(), self._thumb.height())
+    def _show_thumb(self) -> None:
+        """The cover, or the logo without one, made in device pixels so it is not stretched."""
         ratio = self.devicePixelRatioF()
-        self._thumb_logo_ratio = ratio
-        if side > 0:
-            self._thumb.setPixmap(scaled_logo(round(side * ratio), ratio))
+        self._thumb_ratio = ratio
+        side = round(THUMB_SIZE * ratio)
+        if self._cover is None:
+            pixmap = scaled_logo(side, ratio)
+        else:
+            pixmap = QPixmap.fromImage(
+                self._cover.scaled(
+                    side,
+                    side,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+            pixmap.setDevicePixelRatio(ratio)
+        self._thumb.setPixmap(pixmap)
 
     def _show_track_text(self) -> None:
         track = self._track
@@ -502,5 +489,5 @@ class PlayerBar(QWidget):
         else:
             value = 0
         self._progress.blockSignals(True)
-        self._progress.setValue(min(max(value, 0), PROGRESS_STEPS))
+        self._progress.setValue(clamp(value, 0, PROGRESS_STEPS))
         self._progress.blockSignals(False)

@@ -16,6 +16,11 @@ REPEATS = [RepeatMode.OFF, RepeatMode.ALL, RepeatMode.ONE]
 PROGRESS_INTERVAL_MS = 100
 
 
+def _next_value[T](values: list[T], current: T) -> T:
+    """The value after current in values, wrapping round to the first one."""
+    return values[(values.index(current) + 1) % len(values)]
+
+
 class MainWindow(QMainWindow):
     def __init__(self, player: Player, library: Library, visualizer: Visualizer) -> None:
         super().__init__()
@@ -63,7 +68,7 @@ class MainWindow(QMainWindow):
         self._player_bar.repeat_clicked.connect(self.cycle_repeat)
         self._player_bar.seek_requested.connect(lambda position: self.player.seek(position))
         self._player_bar.volume_changed.connect(lambda volume: self.player.set_volume(volume))
-        self._library_view.cellClicked.connect(self.play_track)
+        self._library_view.cellClicked.connect(lambda row, _column: self.play_track(row))
 
         panel = self._now_playing.settings_panel
         panel.language_selected.connect(self.change_language)
@@ -105,16 +110,14 @@ class MainWindow(QMainWindow):
         self._sync_playing()
 
     def cycle_mode(self) -> None:
-        index = MODES.index(self.player.mode)
-        self.player.mode = MODES[(index + 1) % len(MODES)]
+        self.player.mode = _next_value(MODES, self.player.mode)
         self._player_bar.set_mode(self.player.mode)
 
     def cycle_repeat(self) -> None:
-        index = REPEATS.index(self.player.repeat)
-        self.player.repeat = REPEATS[(index + 1) % len(REPEATS)]
+        self.player.repeat = _next_value(REPEATS, self.player.repeat)
         self._player_bar.set_repeat(self.player.repeat)
 
-    def play_track(self, row: int, column: int) -> None:
+    def play_track(self, row: int) -> None:
         tracks = self.library.tracks
         if 0 <= row < len(tracks):
             self.player.select(tracks[row])
